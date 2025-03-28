@@ -1,0 +1,188 @@
+<mxfile host="app.diagrams.net" modified="2023-09-25T12:34:56.789Z" agent="Mozilla/5.0" etag="abc123" version="21.0.0" type="device">
+  <diagram id="architecture-diagram" name="商品管理システム - アーキテクチャ">
+    <mxGraphModel dx="1422" dy="798" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- タイトル -->
+        <mxCell id="title" value="商品管理システム - アーキテクチャ構成図" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="270" y="20" width="600" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- フロントエンドレイヤー -->
+        <mxCell id="frontend_layer" value="フロントエンドレイヤー（Vue.js）" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;rounded=1;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="90" width="280" height="200" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="product_ui" value="商品管理UI&#xa;&#xa;商品のCRUD操作インターフェース" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="frontend_layer">
+          <mxGeometry x="20" y="40" width="240" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="inventory_ui" value="在庫管理UI&#xa;&#xa;在庫情報の表示と操作インターフェース" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="frontend_layer">
+          <mxGeometry x="20" y="110" width="110" height="70" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="order_ui" value="発注管理UI&#xa;&#xa;発注操作インターフェース" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="frontend_layer">
+          <mxGeometry x="150" y="110" width="110" height="70" as="geometry" />
+        </mxCell>
+        
+        <!-- バックエンドレイヤー -->
+        <mxCell id="backend_layer" value="バックエンドレイヤー（Laravel 12.0.0）" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;rounded=1;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="40" y="320" width="280" height="260" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="api_layer" value="API層&#xa;&#xa;RESTful API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="backend_layer">
+          <mxGeometry x="20" y="40" width="240" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="auth_module" value="認証モジュール&#xa;&#xa;ユーザー認証とアクセス制御" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="backend_layer">
+          <mxGeometry x="20" y="100" width="240" height="50" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="product_module" value="商品管理モジュール&#xa;&#xa;商品情報とカテゴリ管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="backend_layer">
+          <mxGeometry x="20" y="160" width="110" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="inventory_module" value="在庫管理モジュール&#xa;&#xa;在庫データとアラート" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="backend_layer">
+          <mxGeometry x="140" y="160" width="120" height="40" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="order_module" value="発注管理モジュール&#xa;&#xa;発注処理と承認フロー" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="backend_layer">
+          <mxGeometry x="140" y="210" width="120" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- データレイヤー -->
+        <mxCell id="data_layer" value="データレイヤー" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;rounded=1;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="380" y="90" width="280" height="400" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="database" value="PostgreSQL 14.11&#xa;&#xa;リレーショナルデータベース" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#f8cecc;strokeColor=#b85450;align=center;verticalAlign=top;fontSize=12;" vertex="1" parent="data_layer">
+          <mxGeometry x="40" y="40" width="200" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="tables" value="データベーステーブル" style="swimlane;fontStyle=0;childLayout=stackLayout;horizontal=1;startSize=26;fillColor=none;horizontalStack=0;resizeParent=1;resizeParentMax=0;resizeLast=0;collapsible=1;marginBottom=0;fontSize=12;" vertex="1" parent="data_layer">
+          <mxGeometry x="40" y="120" width="200" height="260" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="table_users" value="users - ユーザー情報" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=12;" vertex="1" parent="tables">
+          <mxGeometry y="26" width="200" height="26" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="table_products" value="products - 商品情報" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=12;" vertex="1" parent="tables">
+          <mxGeometry y="52" width="200" height="26" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="table_categories" value="categories - 商品カテゴリ" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=12;" vertex="1" parent="tables">
+          <mxGeometry y="78" width="200" height="26" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="table_inventories" value="inventories - 在庫情報" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=12;" vertex="1" parent="tables">
+          <mxGeometry y="104" width="200" height="26" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="table_inventory_history" value="inventory_history - 在庫履歴" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=12;" vertex="1" parent="tables">
+          <mxGeometry y="130" width="200" height="26" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="table_orders" value="orders - 発注情報" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=12;" vertex="1" parent="tables">
+          <mxGeometry y="156" width="200" height="26" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="table_order_items" value="order_items - 発注商品詳細" style="text;strokeColor=none;fillColor=none;align=left;verticalAlign=top;spacingLeft=4;spacingRight=4;overflow=hidden;rotatable=0;points=[[0,0.5],[1,0.5]];portConstraint=eastwest;fontSize=12;" vertex="1" parent="tables">
+          <mxGeometry y="182" width="200" height="26" as="geometry" />
+        </mxCell>
+        
+        <!-- インフラストラクチャレイヤー -->
+        <mxCell id="infrastructure_layer" value="インフラストラクチャレイヤー" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;rounded=1;fontSize=14;fontStyle=1;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="700" y="90" width="280" height="200" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="web_server" value="Nginx 1.25.4&#xa;&#xa;Webサーバー&#xa;静的ファイル配信とルーティング" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=center;verticalAlign=top;fontSize=12;fontColor=#333333;" vertex="1" parent="infrastructure_layer">
+          <mxGeometry x="20" y="40" width="240" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="docker" value="Docker&#xa;&#xa;コンテナ環境" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=center;verticalAlign=top;fontSize=12;fontColor=#333333;" vertex="1" parent="infrastructure_layer">
+          <mxGeometry x="20" y="110" width="110" height="70" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="backup" value="バックアップシステム&#xa;&#xa;データの冗長性と復旧" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=center;verticalAlign=top;fontSize=12;fontColor=#333333;" vertex="1" parent="infrastructure_layer">
+          <mxGeometry x="150" y="110" width="110" height="70" as="geometry" />
+        </mxCell>
+        
+        <!-- 非機能要件 -->
+        <mxCell id="nonfunctional" value="非機能要件" style="swimlane;whiteSpace=wrap;html=1;startSize=30;fillColor=#f8cecc;strokeColor=#b85450;rounded=1;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="700" y="320" width="280" height="260" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="performance" value="性能要件&#xa;- ページロード時間: 2秒以内&#xa;- 同時接続ユーザー数: 100人以上&#xa;- データベース応答時間: 1秒以内" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;fontSize=12;spacingLeft=5;" vertex="1" parent="nonfunctional">
+          <mxGeometry x="20" y="40" width="240" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="security" value="セキュリティ要件&#xa;- ユーザー認証の必須化&#xa;- パスワードの暗号化&#xa;- SQLインジェクション対策&#xa;- XSS対策&#xa;- CSRF対策" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;fontSize=12;spacingLeft=5;" vertex="1" parent="nonfunctional">
+          <mxGeometry x="20" y="110" width="240" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="others" value="その他の要件&#xa;- システム稼働率: 99.9%&#xa;- バックアップの定期実行&#xa;- コードの可読性&#xa;- モジュール化された設計&#xa;- 適切なドキュメント整備" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;fontSize=12;spacingLeft=5;" vertex="1" parent="nonfunctional">
+          <mxGeometry x="20" y="200" width="240" height="50" as="geometry" />
+        </mxCell>
+        
+        <!-- 接続線 -->
+        <!-- フロントエンドとAPIの接続 -->
+        <mxCell id="frontend_to_api" value="HTTPリクエスト" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="frontend_layer" target="api_layer">
+          <mxGeometry x="-0.1667" width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="250" y="330" as="sourcePoint" />
+            <mxPoint x="300" y="280" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- API層からバックエンドモジュールへの接続 -->
+        <mxCell id="api_to_modules" value="内部呼び出し" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="api_layer" target="auth_module">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="250" y="330" as="sourcePoint" />
+            <mxPoint x="300" y="280" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- バックエンドからデータベースへの接続 -->
+        <mxCell id="backend_to_db" value="データアクセス (CRUD操作)" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="backend_layer" target="data_layer">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="350" y="430" as="sourcePoint" />
+            <mxPoint x="400" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 在庫管理モジュールから発注管理モジュールへの接続 -->
+        <mxCell id="inventory_to_order" value="在庫不足時に発注トリガー" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="inventory_module" target="order_module">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="350" y="430" as="sourcePoint" />
+            <mxPoint x="400" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Webサーバーとフロントエンドの接続 -->
+        <mxCell id="nginx_to_frontend" value="リクエスト処理" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;fontSize=10;" edge="1" parent="1" source="web_server" target="frontend_layer">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="350" y="430" as="sourcePoint" />
+            <mxPoint x="400" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- Dockerとアプリケーション全体の接続 -->
+        <mxCell id="docker_to_all" value="コンテナ化" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;direction=west;size=0.5;strokeWidth=2;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="10" y="90" width="20" height="490" as="geometry" />
+        </mxCell>
+        
+        <!-- バックアップシステムとデータベースの接続 -->
+        <mxCell id="backup_to_db" value="定期バックアップ" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;dashed=1;fontSize=10;" edge="1" parent="1" source="backup" target="database">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="350" y="430" as="sourcePoint" />
+            <mxPoint x="400" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile> 

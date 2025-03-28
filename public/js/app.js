@@ -1,6 +1,4 @@
-import './bootstrap';
-
-// Vue.jsを使用せず、シンプルなJavaScriptコードに変更
+// シンプルなJavaScriptファイル
 document.addEventListener('DOMContentLoaded', function() {
     // ページが読み込まれたときの初期化処理
     console.log('商品管理システムが読み込まれました');
@@ -24,3 +22,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
+// AJAX関連のヘルパー関数
+function fetchData(url, callback) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', url);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.onload = function() {
+        if (xhr.status === 200) {
+            callback(JSON.parse(xhr.responseText));
+        }
+    };
+    xhr.send();
+} 
