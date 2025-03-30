@@ -4,8 +4,8 @@
 このプロジェクトは、商品の在庫管理、発注管理、在庫アラート機能を提供するWebアプリケーションです。
 
 ## 技術スタック
-- フロントエンド: Vue.js
-- バックエンド: Laravel 12.0.0
+- フロントエンド: Vue.js 3.4.23 + Inertia.js
+- バックエンド: Laravel 12.0+
 - データベース: PostgreSQL 14.11
 - コンテナ化: Docker
 - バージョン管理: Git
@@ -64,12 +64,36 @@
 
 ## 開発環境
 
-### バージョン情報
+### 技術スタック詳細
+
+#### 言語・ランタイム
 - PHP: 8.2.15
-- Laravel: 12.0.0
-- PostgreSQL: 14.11
-- Nginx: 1.25.4
+- Node.js: Dockerfileでインストール
+
+#### フレームワーク
+- Laravel: 12.0+
+- Vue.js: 3.4.23
+- Inertia.js: Vue3アダプタ 1.0.15、Laravel側 2.0
+
+#### データベース
+- PostgreSQL: 14.11-alpine
+
+#### コンテナ・ツール
+- Docker: Dockerfileあり
+- Nginx: 1.25.4-alpine
+- PHP-FPM: 8.2.15-fpm
 - Composer: 2.6.6
+
+#### フロントエンドツール・ライブラリ
+- Vite: 5.2.5
+- Tailwind CSS: 4.0.17
+- Axios: 1.8.2
+- PostCSS: 8.5.3
+
+#### テスト・開発ツール
+- PHPUnit: 11.5+
+- Laravel Sail: 1.41+
+- Laravel Pint: 1.13+
 
 ### セットアップ手順
 1. リポジトリのクローン
