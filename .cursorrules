@@ -1,13 +1,9 @@
----
-description: 
-globs: 
-alwaysApply: false
----
 # 商品管理システム - Cursor AI 規則
 
 ## プロジェクト概要
 - 言語: 日本語優先（コード・コメント・ドキュメント）
 - 用途: 商品管理システム（在庫、受発注、商品情報管理）
+- Laravel: 12.0+,Vue.js: 3.4.23,Inertia.js: Vue3アダプタ 1.0.15、Laravel側 2.0を使用している
 
 ## 技術スタック
 - バックエンド: Laravel 12.0+ / PHP 8.2.15

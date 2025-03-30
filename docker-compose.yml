@@ -24,6 +24,8 @@ services:
       - ./docker/nginx/conf.d:/etc/nginx/conf.d/
     networks:
       - laravel-network
+    depends_on:
+      - app
 
   db:
     image: postgres:14.11-alpine
@@ -39,6 +41,11 @@ services:
       - "5432:5432"
     networks:
       - laravel-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 networks:
   laravel-network:

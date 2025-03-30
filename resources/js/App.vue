@@ -1,28 +1,36 @@
 <template>
     <div class="app">
         <main class="main-content">
-            <div class="nav-buttons">
+            <div v-if="$page.props.auth.user" class="nav-buttons">
                 <router-link to="/" class="nav-button">
                     ホーム
                 </router-link>
-                <router-link to="/login" class="nav-button">
-                    ユーザー選択
+                <router-link to="/inventory" class="nav-button">
+                    在庫管理
                 </router-link>
-                <router-link to="/products" class="nav-button">
-                    商品一覧
+                <router-link to="/orders" class="nav-button">
+                    発注管理
                 </router-link>
-                <router-link to="/manage" class="nav-button">
-                    商品管理
+                <router-link to="/alerts" class="nav-button">
+                    アラート
                 </router-link>
+                
+                <!-- ユーザー情報とログアウト -->
+                <div class="user-menu">
+                    <span class="user-name">{{ $page.props.auth.user.name }}</span>
+                    <button @click="logout" class="logout-button">ログアウト</button>
+                </div>
             </div>
             <router-view></router-view>
         </main>
     </div>
 </template>
 
-<script>
-export default {
-    name: 'App'
+<script setup>
+import { router } from '@inertiajs/vue3';
+
+function logout() {
+    router.post('/logout');
 }
 </script>
 
@@ -45,6 +53,7 @@ export default {
     gap: 1rem;
     margin-bottom: 2rem;
     flex-wrap: wrap;
+    position: relative;
 }
 
 .nav-button {
@@ -74,5 +83,32 @@ export default {
 
 .nav-button.router-link-active:hover {
     background-color: #0056b3;
+}
+
+.user-menu {
+    position: absolute;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.user-name {
+    font-weight: 500;
+    color: #333;
+}
+
+.logout-button {
+    padding: 0.5rem 1rem;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.logout-button:hover {
+    background-color: #d32f2f;
 }
 </style> 

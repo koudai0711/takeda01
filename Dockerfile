@@ -22,6 +22,14 @@ COPY --from=composer:2.6.6 /usr/bin/composer /usr/bin/composer
 # 作業ディレクトリを設定
 WORKDIR /var/www
 
+# ログディレクトリの作成
+RUN mkdir -p /var/log/php /var/log/php-fpm /var/lib/php/sessions \
+    && chown -R www-data:www-data /var/log/php /var/log/php-fpm /var/lib/php/sessions
+
+# カスタムPHP設定を追加
+COPY ./docker/php/php.ini /usr/local/etc/php/php.ini
+COPY ./docker/php/www.conf /usr/local/etc/php-fpm.d/www.conf
+
 # ユーザーを設定
 RUN chown -R www-data:www-data /var/www
 
