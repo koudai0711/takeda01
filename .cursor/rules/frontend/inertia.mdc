@@ -1,1 +1,287 @@
- 
+# Inertia.js連携ルール
+
+*このファイル: /.cursor/rules/frontend/inertia.mdc*
+
+## Inertia.js概要
+
+Inertia.jsは従来のフルページリロードではなく、SPAのようなシームレスなページ遷移を提供しながら、サーバーサイドのルーティングとコントローラーを活用するライブラリです。
+
+- バージョン: Inertia.js (Vue3 1.0.15/Laravel 2.0)
+- 役割: Laravel（バックエンド）とVue.js（フロントエンド）の橋渡し
+
+## セットアップと設定
+
+### バックエンド（Laravel）側の設定
+
+```php
+// app/Http/Middleware/HandleInertiaRequests.php
+class HandleInertiaRequests extends Middleware
+{
+    public function share(Request $request)
+    {
+        return array_merge(parent::share($request), [
+            // グローバルに共有する変数
+            'auth' => [
+                'user' => $request->user() ? [
+                    'id' => $request->user()->id,
+                    'name' => $request->user()->name,
+                    'email' => $request->user()->email,
+                    'role' => $request->user()->role,
+                ] : null,
+            ],
+            // フラッシュメッセージ
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
+            // CSRFトークン
+            'csrf_token' => csrf_token(),
+        ]);
+    }
+}
+```
+
+### フロントエンド（Vue.js）側の設定
+
+```ts
+// resources/js/app.ts
+import { createApp, h } from 'vue';
+import { createInertiaApp } from '@inertiajs/vue3';
+import { ZiggyVue } from 'ziggy-js';
+import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
+
+// Inertiaアプリケーションの作成
+createInertiaApp({
+    // ページコンポーネントの自動解決
+    resolve: (name) => resolvePageComponent(
+        `./Pages/${name}.vue`,
+        import.meta.glob('./Pages/**/*.vue')
+    ),
+    // アプリケーションのセットアップ
+    setup({ el, App, props, plugin }) {
+        const app = createApp({ render: () => h(App, props) });
+        
+        // プラグイン登録
+        app.use(plugin);
+        app.use(ZiggyVue);
+        
+        // グローバルプロパティ
+        app.config.globalProperties.$route = route;
+        
+        // マウント
+        app.mount(el);
+    },
+});
+```
+
+## ページ遷移とナビゲーション
+
+### リンクによるナビゲーション
+
+```vue
+<script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
+</script>
+
+<template>
+  <!-- 基本的なリンク -->
+  <Link href="/products" class="text-blue-600 hover:underline">商品一覧</Link>
+  
+  <!-- パラメータ付きリンク -->
+  <Link :href="`/products/${product.id}`" class="btn btn-primary">商品詳細</Link>
+  
+  <!-- メソッド指定（データ送信） -->
+  <Link
+    :href="`/products/${product.id}`"
+    method="delete"
+    as="button"
+    :data="{ reason: 'obsolete' }"
+    class="btn btn-danger"
+    @click="confirmDelete"
+  >
+    削除
+  </Link>
+</template>
+```
+
+### プログラムによるナビゲーション
+
+```ts
+import { router } from '@inertiajs/vue3';
+
+// GETリクエスト
+router.get('/products');
+
+// クエリパラメータ付きGETリクエスト
+router.get('/products', {
+  search: '検索語句',
+  category: 3,
+  sort: 'price',
+  order: 'desc'
+});
+
+// POSTリクエスト（データ登録）
+router.post('/products', {
+  product_code: 'PRD-001',
+  name: '商品名',
+  description: '商品説明',
+  price: 1000,
+  category_id: 2,
+  is_active: true
+});
+
+// PUTリクエスト（データ更新）
+router.put(`/products/${productId}`, formData);
+
+// DELETEリクエスト（データ削除）
+router.delete(`/products/${productId}`);
+
+// 追加オプション
+router.post('/products', data, {
+  // プログレス表示用コールバック
+  onProgress: (progress) => {
+    console.log(progress.percentage);
+  },
+  // 成功時コールバック
+  onSuccess: () => {
+    console.log('登録完了');
+  },
+  // エラー時コールバック
+  onError: (errors) => {
+    console.error(errors);
+  }
+});
+```
+
+## フォーム処理
+
+### フォーム送信の実装
+
+```vue
+<script setup lang="ts">
+import { reactive } from 'vue';
+import { router, useForm } from '@inertiajs/vue3';
+import Button from '@/Components/UI/Button.vue';
+import Input from '@/Components/UI/Input.vue';
+import FormGroup from '@/Components/Forms/FormGroup.vue';
+
+// 1. reactiveを使用した実装
+const formData = reactive({
+  product_code: '',
+  name: '',
+  description: '',
+  price: 0,
+  category_id: null,
+  is_active: true
+});
+
+const submitForm1 = () => {
+  router.post('/products', formData);
+};
+
+// 2. useFormを使用した実装（推奨）
+const form = useForm({
+  product_code: '',
+  name: '',
+  description: '',
+  price: 0,
+  category_id: null,
+  is_active: true
+});
+
+const submitForm2 = () => {
+  form.post('/products');
+};
+</script>
+
+<template>
+  <form @submit.prevent="submitForm2">
+    <FormGroup label="商品コード" :error="form.errors.product_code">
+      <Input v-model="form.product_code" required />
+    </FormGroup>
+    
+    <FormGroup label="商品名" :error="form.errors.name">
+      <Input v-model="form.name" required />
+    </FormGroup>
+    
+    <FormGroup label="商品説明" :error="form.errors.description">
+      <textarea v-model="form.description" class="form-input"></textarea>
+    </FormGroup>
+    
+    <FormGroup label="価格" :error="form.errors.price">
+      <Input v-model="form.price" type="number" required />
+    </FormGroup>
+    
+    <Button type="submit" :loading="form.processing">
+      登録する
+    </Button>
+  </form>
+</template>
+```
+
+## データの永続化と共有
+
+### ページ間のデータ共有
+
+```php
+// ProductController.php
+public function index(Request $request)
+{
+    return Inertia::render('Products/Index', [
+        'products' => ProductResource::collection(
+            Product::query()
+                ->with('category')
+                ->when($request->search, function ($query, $search) {
+                    $query->where('name', 'like', "%{$search}%")
+                          ->orWhere('product_code', 'like', "%{$search}%");
+                })
+                ->orderBy($request->sort ?? 'created_at', $request->order ?? 'desc')
+                ->paginate(10)
+        ),
+        'filters' => $request->only(['search', 'sort', 'order']),
+        'categories' => CategoryResource::collection(Category::all()),
+    ]);
+}
+```
+
+### 共有データへのアクセス（Vue.js側）
+
+```vue
+<script setup lang="ts">
+import { usePage } from '@inertiajs/vue3';
+
+// ページプロパティへのアクセス
+const page = usePage();
+const user = page.props.auth.user;
+const successMessage = page.props.flash.success;
+
+// TypeScriptでの型定義
+interface PageProps {
+  auth: {
+    user: {
+      id: number;
+      name: string;
+      email: string;
+      role: string;
+    } | null;
+  };
+  flash: {
+    success: string | null;
+    error: string | null;
+  };
+  // 他のページプロパティ
+}
+
+// 型付きページプロパティへのアクセス
+const typedPage = usePage<PageProps>();
+const typedUser = typedPage.props.auth.user;
+</script>
+```
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# inertia.mdcを使用しています
+# Inertia.js連携ルールに従い、次のようにページ遷移を実装します... 

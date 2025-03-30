@@ -1,1 +1,180 @@
- 
+# データベースマイグレーションルール
+
+*このファイル: /.cursor/rules/database/migrations.mdc*
+
+## マイグレーション基本ルール
+
+- マイグレーションファイルは `database/migrations` ディレクトリに配置
+- ファイル名は `YYYY_MM_DD_HHMMSS_create_xxxx_table.php` 形式
+- マイグレーションクラス名はパスカルケース（例: `CreateProductsTable`）
+- テーブル名は複数形・スネークケース（例: `products`）
+- 必ず `up()` と `down()` メソッドを両方実装
+
+## テーブル設計ルール
+
+### 基本フィールド
+
+```php
+// テーブル作成の基本パターン
+Schema::create('products', function (Blueprint $table) {
+    // 主キー（デフォルトで自動採番）
+    $table->id();
+    
+    // 基本フィールド
+    $table->string('product_code', 50)->unique()->comment('商品コード');
+    $table->string('name')->comment('商品名');
+    $table->text('description')->nullable()->comment('商品説明');
+    $table->decimal('price', 10, 2)->comment('価格');
+    $table->foreignId('category_id')->constrained()->comment('カテゴリID');
+    $table->boolean('is_active')->default(true)->comment('有効フラグ');
+    
+    // タイムスタンプ
+    $table->timestamps();
+    // 論理削除用のフィールド
+    $table->softDeletes();
+});
+```
+
+### フィールド命名規則
+
+- 主キーは `id`（自動採番のbigint）
+- 外部キーは `[参照テーブル名の単数形]_id`（例: `category_id`）
+- 日時フィールドは `_at` サフィックス（例: `created_at`, `updated_at`, `last_login_at`）
+- 真偽値フィールドは `is_` または `has_` プレフィックス（例: `is_active`, `has_attachment`）
+- 金額フィールドは `decimal(10, 2)` 型で定義（例: `price`, `tax_amount`）
+
+### インデックス
+
+- 検索頻度の高いフィールドにはインデックスを追加
+- 複合インデックスは使用頻度やパフォーマンスを考慮して設定
+
+```php
+// インデックス例
+$table->index('name');
+$table->index(['category_id', 'is_active']);
+```
+
+## リレーション設定
+
+### 外部キー制約
+
+```php
+// 外部キー制約の基本
+$table->foreignId('category_id')
+      ->constrained()
+      ->onUpdate('cascade')
+      ->onDelete('restrict');
+
+// 詳細な設定
+$table->foreignId('user_id')
+      ->constrained('users')
+      ->onUpdate('cascade')
+      ->onDelete('cascade');
+```
+
+### ピボットテーブル（多対多）
+
+```php
+// 多対多リレーション用ピボットテーブル
+Schema::create('product_tag', function (Blueprint $table) {
+    $table->id();
+    $table->foreignId('product_id')->constrained()->onDelete('cascade');
+    $table->foreignId('tag_id')->constrained()->onDelete('cascade');
+    $table->timestamps();
+    
+    // 同じ組み合わせを防ぐためのユニーク制約
+    $table->unique(['product_id', 'tag_id']);
+});
+```
+
+## マイグレーション例
+
+### 商品テーブル（主テーブル）
+
+```php
+// database/migrations/YYYY_MM_DD_HHMMSS_create_products_table.php
+public function up()
+{
+    Schema::create('products', function (Blueprint $table) {
+        $table->id();
+        $table->string('product_code', 50)->unique()->comment('商品コード');
+        $table->string('name')->comment('商品名');
+        $table->text('description')->nullable()->comment('商品説明');
+        $table->decimal('price', 10, 2)->comment('価格');
+        $table->foreignId('category_id')->constrained()->comment('カテゴリID');
+        $table->boolean('is_active')->default(true)->comment('有効フラグ');
+        $table->timestamps();
+        $table->softDeletes();
+        
+        // インデックス
+        $table->index('name');
+        $table->index(['category_id', 'is_active']);
+    });
+}
+
+public function down()
+{
+    Schema::dropIfExists('products');
+}
+```
+
+### 在庫テーブル（関連テーブル）
+
+```php
+// database/migrations/YYYY_MM_DD_HHMMSS_create_inventories_table.php
+public function up()
+{
+    Schema::create('inventories', function (Blueprint $table) {
+        $table->id();
+        $table->foreignId('product_id')->unique()->constrained()->onDelete('cascade')->comment('商品ID');
+        $table->integer('quantity')->default(0)->comment('在庫数量');
+        $table->integer('safety_stock')->default(0)->comment('安全在庫数');
+        $table->timestamp('last_checked_at')->nullable()->comment('最終棚卸日時');
+        $table->timestamps();
+        
+        // インデックス
+        $table->index('quantity');
+    });
+}
+
+public function down()
+{
+    Schema::dropIfExists('inventories');
+}
+```
+
+### テーブル変更
+
+```php
+// database/migrations/YYYY_MM_DD_HHMMSS_add_columns_to_products_table.php
+public function up()
+{
+    Schema::table('products', function (Blueprint $table) {
+        // カラム追加
+        $table->string('manufacturer')->nullable()->after('name')->comment('製造元');
+        $table->date('release_date')->nullable()->after('description')->comment('発売日');
+        
+        // インデックス追加
+        $table->index('manufacturer');
+    });
+}
+
+public function down()
+{
+    Schema::table('products', function (Blueprint $table) {
+        // カラム削除
+        $table->dropColumn(['manufacturer', 'release_date']);
+        
+        // インデックス削除
+        $table->dropIndex(['manufacturer']);
+    });
+}
+```
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# migrations.mdcを使用しています
+# データベースマイグレーションルールに従い、次のように商品テーブルのマイグレーションを実装します... 

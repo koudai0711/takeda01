@@ -1,0 +1,171 @@
+# サービス層設計ルール
+
+*このファイル: /.cursor/rules/backend/services.mdc*
+
+## サービス層の目的
+
+- ビジネスロジックを集約
+- コントローラーと永続化層（リポジトリ・モデル）の中間に位置
+- 再利用可能なロジックを提供
+- トランザクション管理
+
+## サービス層の構造
+
+```
+app/Services/
+├── Auth/                   # 認証関連サービス
+│   └── AuthService.php
+├── Products/               # 商品管理サービス
+│   └── ProductService.php
+├── Inventory/              # 在庫管理サービス
+│   └── InventoryService.php
+└── Orders/                 # 受発注管理サービス
+    └── OrderService.php
+```
+
+## インターフェース定義
+
+サービスはインターフェースを通じて利用することを推奨：
+
+```php
+// app/Services/Products/ProductServiceInterface.php
+interface ProductServiceInterface
+{
+    /**
+     * 商品一覧を取得
+     *
+     * @param string|null $search 検索キーワード
+     * @param int|null $categoryId カテゴリID
+     * @param string $sortBy ソートキー
+     * @param string $order ソート順序
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     */
+    public function listProducts(?string $search, ?int $categoryId, string $sortBy, string $order);
+
+    /**
+     * 商品を作成
+     *
+     * @param array $data 商品データ
+     * @return \App\Models\Product
+     */
+    public function createProduct(array $data);
+
+    /**
+     * 商品を更新
+     *
+     * @param \App\Models\Product $product 更新対象の商品
+     * @param array $data 更新データ
+     * @return \App\Models\Product
+     */
+    public function updateProduct(Product $product, array $data);
+
+    /**
+     * 商品を削除
+     *
+     * @param \App\Models\Product $product 削除対象の商品
+     * @return bool
+     */
+    public function deleteProduct(Product $product);
+}
+```
+
+## サービス実装例
+
+```php
+// app/Services/Products/ProductService.php
+class ProductService implements ProductServiceInterface
+{
+    protected ProductRepository $productRepository;
+    protected InventoryService $inventoryService;
+
+    public function __construct(
+        ProductRepository $productRepository,
+        InventoryService $inventoryService
+    ) {
+        $this->productRepository = $productRepository;
+        $this->inventoryService = $inventoryService;
+    }
+
+    /**
+     * 商品一覧を取得
+     */
+    public function listProducts(?string $search, ?int $categoryId, string $sortBy, string $order)
+    {
+        return $this->productRepository->list(
+            $search,
+            $categoryId,
+            $sortBy,
+            $order
+        );
+    }
+
+    /**
+     * 商品を作成し、初期在庫を設定
+     */
+    public function createProduct(array $data)
+    {
+        // トランザクション開始
+        return DB::transaction(function () use ($data) {
+            // 商品の作成
+            $product = $this->productRepository->create($data);
+
+            // 在庫レコードの初期化（別サービスの呼び出し）
+            $initialQuantity = $data['initial_quantity'] ?? 0;
+            $this->inventoryService->initializeInventory($product->id, $initialQuantity);
+
+            return $product;
+        });
+    }
+
+    /**
+     * 商品を更新
+     */
+    public function updateProduct(Product $product, array $data)
+    {
+        return $this->productRepository->update($product, $data);
+    }
+
+    /**
+     * 商品を削除
+     */
+    public function deleteProduct(Product $product)
+    {
+        // 関連する在庫も削除するため、トランザクションを使用
+        return DB::transaction(function () use ($product) {
+            // 在庫の削除
+            $this->inventoryService->deleteInventory($product->inventory);
+
+            // 商品の削除
+            return $this->productRepository->delete($product);
+        });
+    }
+}
+```
+
+## サービスプロバイダ登録
+
+```php
+// app/Providers/AppServiceProvider.php
+public function register()
+{
+    $this->app->bind(
+        \App\Services\Products\ProductServiceInterface::class,
+        \App\Services\Products\ProductService::class
+    );
+
+    $this->app->bind(
+        \App\Services\Inventory\InventoryServiceInterface::class,
+        \App\Services\Inventory\InventoryService::class
+    );
+
+    // 他のサービスも同様に登録
+}
+```
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# services.mdcを使用しています
+# サービス層設計ルールに従い、次のようにProductServiceを実装します... 

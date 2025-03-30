@@ -1,0 +1,208 @@
+# Vue.js実装ルール
+
+*このファイル: /.cursor/rules/frontend/vue.mdc*
+
+## フレームワーク設定
+
+- Vue.js バージョン: 3.4.23
+- 構文: Composition API + `<script setup>` 形式
+- 型付け: TypeScript
+- ビルドツール: Vite 5.2.5
+
+## ディレクトリ構造
+
+```
+resources/js/
+├── Pages/                   # Inertia.jsページコンポーネント
+│   ├── Auth/                # 認証関連ページ
+│   ├── Dashboard/           # ダッシュボード
+│   ├── Products/            # 商品管理ページ
+│   ├── Inventory/           # 在庫管理ページ
+│   └── Orders/              # 受発注管理ページ
+├── Components/              # 共通コンポーネント
+│   ├── Layout/              # レイアウト関連
+│   ├── Forms/               # フォーム関連
+│   ├── Tables/              # テーブル関連
+│   └── UI/                  # UI要素
+├── Composables/             # 共通のコンポジション関数
+├── Types/                   # 型定義
+├── Utils/                   # ユーティリティ関数
+└── app.ts                   # アプリケーションのエントリーポイント
+```
+
+## コンポーネント設計
+
+### コンポーネントの命名規則
+
+- PascalCase でファイル名を付ける（例: `ProductList.vue`）
+- ページコンポーネントには `Page` サフィックスを付ける（例: `ProductListPage.vue`）
+- 単一の機能に集中した小さなコンポーネント作成を推奨
+
+### 基本構成
+
+```vue
+<!-- resources/js/Pages/Products/Index.vue -->
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { Head } from '@inertiajs/vue3';
+import MainLayout from '@/Components/Layout/MainLayout.vue';
+import SearchForm from '@/Components/Forms/SearchForm.vue';
+import ProductTable from '@/Components/Tables/ProductTable.vue';
+import { Product } from '@/Types/product';
+
+// Props定義
+const props = defineProps<{
+  products: Product[];
+  filters: {
+    search: string | null;
+    category: number | null;
+    sort: string;
+    order: string;
+  };
+}>();
+
+// 状態管理
+const loading = ref(false);
+const searchQuery = ref(props.filters.search || '');
+
+// 算出プロパティ
+const filteredProducts = computed(() => {
+  // クライアントサイドでの追加フィルタリングがあれば実装
+  return props.products;
+});
+
+// メソッド
+const handleSearch = () => {
+  loading.value = true;
+  // Inertiaを使用した検索処理
+};
+
+// ライフサイクルフック
+onMounted(() => {
+  // 初期化処理
+});
+</script>
+
+<template>
+  <Head title="商品一覧" />
+
+  <MainLayout>
+    <template #header>
+      <h1 class="text-2xl font-semibold text-gray-900">商品一覧</h1>
+    </template>
+
+    <div class="py-6">
+      <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <SearchForm
+          v-model="searchQuery"
+          @search="handleSearch"
+          :loading="loading"
+        />
+
+        <ProductTable
+          :products="filteredProducts"
+          :loading="loading"
+          class="mt-6"
+        />
+      </div>
+    </div>
+  </MainLayout>
+</template>
+```
+
+## TypeScript型定義
+
+```ts
+// resources/js/Types/product.ts
+export interface Category {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+export interface Inventory {
+  id: number;
+  product_id: number;
+  quantity: number;
+  last_checked_at: string | null;
+}
+
+export interface Product {
+  id: number;
+  product_code: string;
+  name: string;
+  description: string | null;
+  price: number;
+  category_id: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  
+  // リレーション（オプショナル）
+  category?: Category;
+  inventory?: Inventory;
+  
+  // 計算値
+  tax_included_price?: number;
+}
+```
+
+## Composables（構成関数）
+
+再利用可能なロジックは composables として切り出す：
+
+```ts
+// resources/js/Composables/usePagination.ts
+import { ref, computed, watch } from 'vue';
+
+export function usePagination<T>(items: T[], itemsPerPage = 10) {
+  const currentPage = ref(1);
+  const totalPages = computed(() => Math.ceil(items.length / itemsPerPage));
+  
+  const paginatedItems = computed(() => {
+    const start = (currentPage.value - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return items.slice(start, end);
+  });
+  
+  const nextPage = () => {
+    if (currentPage.value < totalPages.value) {
+      currentPage.value++;
+    }
+  };
+  
+  const prevPage = () => {
+    if (currentPage.value > 1) {
+      currentPage.value--;
+    }
+  };
+  
+  watch(items, () => {
+    // アイテムが変更されたら1ページ目に戻す
+    currentPage.value = 1;
+  });
+  
+  return {
+    currentPage,
+    totalPages,
+    paginatedItems,
+    nextPage,
+    prevPage
+  };
+}
+```
+
+## スタイリング
+
+- Tailwind CSSを使用
+- スコープ付きCSSではなく、Tailwindのユーティリティクラスを優先
+- 複雑なカスタムスタイルはコンポーネント内の`<style>`タグで定義
+- 共通スタイルはTailwindの拡張として定義
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# vue.mdcを使用しています
+# Vue.js実装ルールに従い、次のように商品一覧ページを実装します... 

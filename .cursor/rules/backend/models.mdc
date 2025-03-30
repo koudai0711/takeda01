@@ -1,0 +1,137 @@
+# データモデル設計ルール
+
+*このファイル: /.cursor/rules/backend/models.mdc*
+
+## モデル定義基本ルール
+
+- モデルクラスは `app/Models` ディレクトリに配置
+- 単数形・パスカルケースでクラス名を定義（例: `Product`, `OrderItem`）
+- テーブル名は複数形・スネークケースで定義（例: `products`, `order_items`）
+- IDはデフォルトで `id` を使用し、`unsigned bigint` 型
+
+## 属性と関連の定義
+
+### カラム定義
+
+```php
+// app/Models/Product.php
+class Product extends Model
+{
+    /**
+     * The attributes that are mass assignable.
+     */
+    protected $fillable = [
+        'product_code',
+        'name',
+        'description',
+        'price',
+        'category_id',
+        'is_active',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     */
+    protected $casts = [
+        'price' => 'decimal:2',
+        'is_active' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+}
+```
+
+### リレーション定義
+
+- 命名は関連するモデル名を基準に
+- ドキュメントコメントで関連を明示
+
+```php
+// app/Models/Product.php
+class Product extends Model
+{
+    // ... 他のコード ...
+
+    /**
+     * 商品が所属するカテゴリを取得
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * 商品に関連する在庫情報を取得
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasOne
+     */
+    public function inventory()
+    {
+        return $this->hasOne(Inventory::class);
+    }
+
+    /**
+     * 商品に関連する注文詳細を取得
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+}
+```
+
+## スコープとアクセサ/ミューテタ
+
+- クエリスコープはビジネスロジックに基づいて定義
+- アクセサとミューテタは派生属性に使用
+
+```php
+// app/Models/Product.php
+class Product extends Model
+{
+    // ... 他のコード ...
+
+    /**
+     * アクティブな商品のみを絞り込むクエリスコープ
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * 在庫あり商品のみを絞り込むクエリスコープ
+     */
+    public function scopeInStock($query)
+    {
+        return $query->whereHas('inventory', function ($q) {
+            $q->where('quantity', '>', 0);
+        });
+    }
+
+    /**
+     * 税込価格アクセサ
+     */
+    public function getTaxIncludedPriceAttribute()
+    {
+        return $this->price * 1.10; // 10%の消費税
+    }
+}
+```
+
+## ファクトリとシーダー
+
+- テスト用のファクトリは実データに近い設定
+- シーダーは開発環境と本番環境で区別
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# models.mdcを使用しています
+# データモデル設計ルールに従い、次のようにモデルを実装します... 

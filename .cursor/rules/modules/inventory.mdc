@@ -1,0 +1,567 @@
+# 在庫管理モジュールルール
+
+*このファイル: /.cursor/rules/modules/inventory.mdc*
+
+## モジュール概要
+
+在庫管理モジュールは、商品の在庫数量を追跡し、在庫の入出庫管理、在庫調整、在庫アラート機能を提供します。
+
+## 機能一覧
+
+- 在庫一覧・検索
+- 在庫入出庫管理
+- 在庫調整（棚卸し）
+- 在庫履歴管理
+- 在庫アラート（安全在庫数割れ通知）
+- 在庫レポート
+
+## データモデル
+
+### 在庫情報（Inventory）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| product_id | bigint | 商品ID（外部キー） |
+| quantity | integer | 在庫数量 |
+| safety_stock | integer | 安全在庫数 |
+| last_checked_at | datetime | 最終棚卸日時 |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+### 在庫履歴（InventoryHistory）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| inventory_id | bigint | 在庫ID（外部キー） |
+| product_id | bigint | 商品ID（外部キー） |
+| type | string | 履歴タイプ（入庫/出庫/調整） |
+| quantity | integer | 数量変化（正/負） |
+| before_quantity | integer | 変更前数量 |
+| after_quantity | integer | 変更後数量 |
+| reason | string | 理由 |
+| note | text | 備考 |
+| performed_by | bigint | 操作者ID（外部キー） |
+| created_at | datetime | 作成日時 |
+
+### 在庫アラート（InventoryAlert）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| inventory_id | bigint | 在庫ID（外部キー） |
+| product_id | bigint | 商品ID（外部キー） |
+| alert_type | string | アラートタイプ |
+| status | string | ステータス |
+| message | string | メッセージ |
+| resolved_at | datetime | 解決日時 |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+## クラス構成
+
+### コントローラー
+
+```
+app/Http/Controllers/Inventory/
+├── InventoryController.php        # 在庫一覧・詳細
+├── InventoryHistoryController.php # 在庫履歴
+├── StockInController.php          # 入庫処理
+├── StockOutController.php         # 出庫処理
+├── StockAdjustController.php      # 在庫調整
+└── AlertController.php            # アラート管理
+```
+
+### サービス
+
+```
+app/Services/Inventory/
+├── InventoryService.php           # 在庫基本サービス
+├── StockTransactionService.php    # 在庫取引サービス
+└── AlertService.php               # アラートサービス
+```
+
+### モデル
+
+```
+app/Models/
+├── Inventory.php                  # 在庫モデル
+├── InventoryHistory.php           # 在庫履歴モデル
+└── InventoryAlert.php             # 在庫アラートモデル
+```
+
+### リクエスト
+
+```
+app/Http/Requests/Inventory/
+├── StockInRequest.php             # 入庫リクエスト
+├── StockOutRequest.php            # 出庫リクエスト
+└── StockAdjustRequest.php         # 在庫調整リクエスト
+```
+
+## 実装例
+
+### 在庫モデル
+
+```php
+// app/Models/Inventory.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Inventory extends Model
+{
+    use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'product_id',
+        'quantity',
+        'safety_stock',
+        'last_checked_at',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'quantity' => 'integer',
+        'safety_stock' => 'integer',
+        'last_checked_at' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    /**
+     * 在庫に関連する商品を取得
+     */
+    public function product()
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * 在庫履歴を取得
+     */
+    public function histories()
+    {
+        return $this->hasMany(InventoryHistory::class)->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * 在庫アラートを取得
+     */
+    public function alerts()
+    {
+        return $this->hasMany(InventoryAlert::class)->whereNull('resolved_at');
+    }
+
+    /**
+     * 在庫不足かどうかを判定
+     */
+    public function isLowStock()
+    {
+        return $this->quantity <= $this->safety_stock;
+    }
+
+    /**
+     * 在庫切れかどうかを判定
+     */
+    public function isOutOfStock()
+    {
+        return $this->quantity <= 0;
+    }
+}
+```
+
+### 在庫サービス
+
+```php
+// app/Services/Inventory/InventoryService.php
+namespace App\Services\Inventory;
+
+use App\Models\Inventory;
+use App\Models\InventoryHistory;
+use App\Models\Product;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
+class InventoryService
+{
+    protected AlertService $alertService;
+
+    public function __construct(AlertService $alertService)
+    {
+        $this->alertService = $alertService;
+    }
+
+    /**
+     * 在庫一覧を取得
+     */
+    public function listInventories(?string $search, ?string $status, string $sortBy, string $order)
+    {
+        return Inventory::with(['product', 'product.category'])
+            ->when($search, function ($query, $search) {
+                $query->whereHas('product', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('product_code', 'like', "%{$search}%");
+                });
+            })
+            ->when($status === 'low_stock', function ($query) {
+                $query->whereRaw('quantity <= safety_stock AND quantity > 0');
+            })
+            ->when($status === 'out_of_stock', function ($query) {
+                $query->where('quantity', '<=', 0);
+            })
+            ->when($status === 'normal', function ($query) {
+                $query->whereRaw('quantity > safety_stock');
+            })
+            ->orderBy($sortBy, $order)
+            ->paginate(15);
+    }
+
+    /**
+     * 初期在庫を作成
+     */
+    public function initializeInventory(int $productId, int $initialQuantity = 0, int $safetyStock = 5)
+    {
+        return DB::transaction(function () use ($productId, $initialQuantity, $safetyStock) {
+            $inventory = Inventory::create([
+                'product_id' => $productId,
+                'quantity' => $initialQuantity,
+                'safety_stock' => $safetyStock,
+                'last_checked_at' => now(),
+            ]);
+
+            // 初期在庫履歴を記録
+            if ($initialQuantity > 0) {
+                $this->recordHistory(
+                    $inventory->id,
+                    $productId,
+                    'initial',
+                    $initialQuantity,
+                    0,
+                    $initialQuantity,
+                    '初期在庫設定'
+                );
+            }
+
+            // 在庫状態をチェックしてアラートを生成
+            $this->checkInventoryStatus($inventory);
+
+            return $inventory;
+        });
+    }
+
+    /**
+     * 入庫処理
+     */
+    public function stockIn(int $productId, int $quantity, string $reason, ?string $note = null)
+    {
+        return DB::transaction(function () use ($productId, $quantity, $reason, $note) {
+            $inventory = Inventory::where('product_id', $productId)->firstOrFail();
+            $beforeQuantity = $inventory->quantity;
+            $afterQuantity = $beforeQuantity + $quantity;
+
+            // 在庫数更新
+            $inventory->update([
+                'quantity' => $afterQuantity,
+            ]);
+
+            // 履歴記録
+            $this->recordHistory(
+                $inventory->id,
+                $productId,
+                'stock_in',
+                $quantity,
+                $beforeQuantity,
+                $afterQuantity,
+                $reason,
+                $note
+            );
+
+            // 在庫状態をチェック
+            $this->checkInventoryStatus($inventory);
+
+            return $inventory;
+        });
+    }
+
+    /**
+     * 出庫処理
+     */
+    public function stockOut(int $productId, int $quantity, string $reason, ?string $note = null)
+    {
+        return DB::transaction(function () use ($productId, $quantity, $reason, $note) {
+            $inventory = Inventory::where('product_id', $productId)->firstOrFail();
+            $beforeQuantity = $inventory->quantity;
+            $afterQuantity = $beforeQuantity - $quantity;
+
+            // 在庫数更新
+            $inventory->update([
+                'quantity' => $afterQuantity,
+            ]);
+
+            // 履歴記録
+            $this->recordHistory(
+                $inventory->id,
+                $productId,
+                'stock_out',
+                -$quantity,
+                $beforeQuantity,
+                $afterQuantity,
+                $reason,
+                $note
+            );
+
+            // 在庫状態をチェック
+            $this->checkInventoryStatus($inventory);
+
+            return $inventory;
+        });
+    }
+
+    /**
+     * 在庫調整（棚卸し）
+     */
+    public function adjustStock(int $productId, int $newQuantity, string $reason, ?string $note = null)
+    {
+        return DB::transaction(function () use ($productId, $newQuantity, $reason, $note) {
+            $inventory = Inventory::where('product_id', $productId)->firstOrFail();
+            $beforeQuantity = $inventory->quantity;
+            $difference = $newQuantity - $beforeQuantity;
+
+            // 在庫数更新
+            $inventory->update([
+                'quantity' => $newQuantity,
+                'last_checked_at' => now(),
+            ]);
+
+            // 履歴記録
+            $this->recordHistory(
+                $inventory->id,
+                $productId,
+                'adjustment',
+                $difference,
+                $beforeQuantity,
+                $newQuantity,
+                $reason,
+                $note
+            );
+
+            // 在庫状態をチェック
+            $this->checkInventoryStatus($inventory);
+
+            return $inventory;
+        });
+    }
+
+    /**
+     * 在庫履歴を記録
+     */
+    private function recordHistory(
+        int $inventoryId,
+        int $productId,
+        string $type,
+        int $quantity,
+        int $beforeQuantity,
+        int $afterQuantity,
+        string $reason,
+        ?string $note = null
+    ) {
+        return InventoryHistory::create([
+            'inventory_id' => $inventoryId,
+            'product_id' => $productId,
+            'type' => $type,
+            'quantity' => $quantity,
+            'before_quantity' => $beforeQuantity,
+            'after_quantity' => $afterQuantity,
+            'reason' => $reason,
+            'note' => $note,
+            'performed_by' => Auth::id(),
+        ]);
+    }
+
+    /**
+     * 在庫状態をチェックしてアラートを生成
+     */
+    private function checkInventoryStatus(Inventory $inventory)
+    {
+        if ($inventory->isOutOfStock()) {
+            $this->alertService->createAlert(
+                $inventory->id,
+                $inventory->product_id,
+                'out_of_stock',
+                '在庫切れが発生しました'
+            );
+        } elseif ($inventory->isLowStock()) {
+            $this->alertService->createAlert(
+                $inventory->id,
+                $inventory->product_id,
+                'low_stock',
+                '在庫が安全在庫数を下回りました'
+            );
+        } else {
+            // アラート解決処理
+            $this->alertService->resolveAlerts($inventory->id);
+        }
+    }
+}
+```
+
+### 在庫コントローラー
+
+```php
+// app/Http/Controllers/Inventory/InventoryController.php
+namespace App\Http\Controllers\Inventory;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\InventoryResource;
+use App\Models\Inventory;
+use App\Services\Inventory\InventoryService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+
+class InventoryController extends Controller
+{
+    protected InventoryService $inventoryService;
+
+    public function __construct(InventoryService $inventoryService)
+    {
+        $this->inventoryService = $inventoryService;
+    }
+
+    /**
+     * 在庫一覧を表示
+     */
+    public function index(Request $request)
+    {
+        $inventories = $this->inventoryService->listInventories(
+            $request->get('search'),
+            $request->get('status'),
+            $request->get('sort', 'updated_at'),
+            $request->get('order', 'desc')
+        );
+
+        return Inertia::render('Inventory/Index', [
+            'inventories' => InventoryResource::collection($inventories),
+            'filters' => $request->all(['search', 'status', 'sort', 'order']),
+        ]);
+    }
+
+    /**
+     * 在庫詳細を表示
+     */
+    public function show(Inventory $inventory)
+    {
+        $inventory->load(['product', 'product.category', 'histories' => function ($query) {
+            $query->with('performer')->latest()->take(10);
+        }]);
+
+        return Inertia::render('Inventory/Show', [
+            'inventory' => new InventoryResource($inventory),
+        ]);
+    }
+
+    /**
+     * 在庫履歴一覧を表示
+     */
+    public function history(Inventory $inventory, Request $request)
+    {
+        $histories = $inventory->histories()
+            ->with('performer')
+            ->when($request->get('type'), function ($query, $type) {
+                $query->where('type', $type);
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return Inertia::render('Inventory/History', [
+            'inventory' => new InventoryResource($inventory->load('product')),
+            'histories' => $histories,
+            'filters' => $request->only('type'),
+        ]);
+    }
+}
+```
+
+### 入庫コントローラー
+
+```php
+// app/Http/Controllers/Inventory/StockInController.php
+namespace App\Http\Controllers\Inventory;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Inventory\StockInRequest;
+use App\Http\Resources\InventoryResource;
+use App\Models\Inventory;
+use App\Models\Product;
+use App\Services\Inventory\InventoryService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+
+class StockInController extends Controller
+{
+    protected InventoryService $inventoryService;
+
+    public function __construct(InventoryService $inventoryService)
+    {
+        $this->inventoryService = $inventoryService;
+    }
+
+    /**
+     * 入庫フォームを表示
+     */
+    public function create(Request $request)
+    {
+        $product = null;
+        if ($request->has('product_id')) {
+            $product = Product::findOrFail($request->product_id);
+        }
+
+        $products = Product::active()
+            ->with(['inventory'])
+            ->orderBy('name')
+            ->get(['id', 'product_code', 'name']);
+
+        return Inertia::render('Inventory/StockIn', [
+            'products' => $products,
+            'selectedProduct' => $product,
+        ]);
+    }
+
+    /**
+     * 入庫処理を実行
+     */
+    public function store(StockInRequest $request)
+    {
+        $inventory = $this->inventoryService->stockIn(
+            $request->product_id,
+            $request->quantity,
+            $request->reason,
+            $request->note
+        );
+
+        return redirect()->route('inventory.show', $inventory)
+            ->with('success', '入庫処理が完了しました');
+    }
+}
+```
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# inventory.mdcを使用しています
+# 在庫管理モジュールルールに従い、次のように在庫一覧画面を実装します...
+``` 

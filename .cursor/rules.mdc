@@ -1,0 +1,55 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# 商品管理システム - Cursor AI 規則
+
+## プロジェクト概要
+- 言語: 日本語優先（コード・コメント・ドキュメント）
+- 用途: 商品管理システム（在庫、受発注、商品情報管理）
+
+## 技術スタック
+- バックエンド: Laravel 12.0+ / PHP 8.2.15
+- フロントエンド: Vue.js 3.4.23 / Inertia.js (Vue3 1.0.15/Laravel 2.0)
+- データベース: PostgreSQL 14.11
+- 環境: Docker (Nginx 1.25.4-alpine, PHP-FPM 8.2.15-fpm)
+- ビルドツール: Vite 5.2.5, Composer 2.6.6
+- CSS: Tailwind CSS 4.0.17
+
+## コーディング規約
+- PHP: PSR-12準拠、インデント4スペース、キャメルケース
+- Vue: Style Guide準拠、インデント2スペース、ケバブケース
+- 行末セミコロン: 必須
+- コメント: 日本語で記述
+
+## ファイル構造
+- Laravelの標準構造に従う
+- Vueコンポーネント: resources/js/Components
+- ページコンポーネント: resources/js/Pages
+
+## 命名規則
+- コントローラー: PascalCase、単数形、「Controller」サフィックス
+- モデル: PascalCase、単数形
+- テーブル: snake_case、複数形
+- カラム: snake_case
+- 主キー: id（デフォルト）
+- 外部キー: [テーブル名の単数形]_id
+
+## データベース設計
+- マイグレーションでテーブル管理
+- 必要に応じて外部キー制約
+- インデックス最適化
+- 日付関連カラムは created_at, updated_at を標準使用
+
+## Git規約
+- コミットメッセージ: 日本語、プレフィックス付き (feat:, fix:, など)
+- ブランチ名: feature/, bugfix/, hotfix/ プレフィックス使用
+- マージ: プルリクエスト経由
+
+## AI開発サポート規則
+- 既存コード規約に従う
+- レスポンスは日本語を優先
+- 実装説明を詳細に提供
+- 既存プロジェクト構造を尊重
+- 商品管理業務の文脈を考慮したコード生成

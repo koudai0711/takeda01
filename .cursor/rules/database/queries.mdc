@@ -1,1 +1,206 @@
- 
+# クエリ最適化ルール
+
+*このファイル: /.cursor/rules/database/queries.mdc*
+
+## 基本的なクエリ最適化
+
+### N+1問題の回避
+
+- Eagerロードを積極的に活用
+- 必要なリレーションのみをロード
+
+```php
+// 悪い例：N+1問題
+$products = Product::all();
+foreach ($products as $product) {
+    // 各商品に対して追加クエリが実行される
+    $category = $product->category;
+    $inventory = $product->inventory;
+}
+
+// 良い例：Eagerロード
+$products = Product::with(['category', 'inventory'])->get();
+foreach ($products as $product) {
+    // 追加クエリなしで関連データにアクセス可能
+    $category = $product->category;
+    $inventory = $product->inventory;
+}
+```
+
+### クエリの具体化
+
+- 必要なカラムのみを取得
+- 複雑な条件はクエリビルダで絞り込み
+
+```php
+// 悪い例：不要なデータも取得
+$products = Product::all();
+
+// 良い例：必要なカラムのみ取得
+$products = Product::select('id', 'product_code', 'name', 'price')->get();
+
+// 良い例：条件でフィルタリング
+$activeProducts = Product::where('is_active', true)
+    ->where('price', '>=', 1000)
+    ->orderBy('created_at', 'desc')
+    ->take(10)
+    ->get();
+```
+
+## 複雑なクエリの最適化
+
+### 結合クエリ
+
+- 必要な場合のみJOINを使用
+- インデックスを効果的に活用したJOIN条件
+
+```php
+// Eloquentでの結合クエリ
+$productsWithInventory = Product::select(
+    'products.*',
+    'inventories.quantity',
+    'inventories.safety_stock'
+)
+->join('inventories', 'products.id', '=', 'inventories.product_id')
+->where('inventories.quantity', '>', 0)
+->get();
+
+// クエリビルダでの複雑な結合
+$lowStockProducts = DB::table('products')
+    ->select(
+        'products.id',
+        'products.product_code',
+        'products.name',
+        'categories.name as category_name',
+        'inventories.quantity',
+        'inventories.safety_stock'
+    )
+    ->join('categories', 'products.category_id', '=', 'categories.id')
+    ->join('inventories', 'products.id', '=', 'inventories.product_id')
+    ->where('products.is_active', true)
+    ->whereRaw('inventories.quantity <= inventories.safety_stock')
+    ->orderBy('inventories.quantity')
+    ->get();
+```
+
+### サブクエリの活用
+
+```php
+// サブクエリを使用した効率的なクエリ
+$productsWithLatestOrder = Product::select('products.*')
+    ->addSelect([
+        'latest_order_date' => Order::select('created_at')
+            ->whereColumn('product_id', 'products.id')
+            ->latest()
+            ->take(1)
+    ])
+    ->with('category')
+    ->orderBy('latest_order_date', 'desc')
+    ->get();
+```
+
+## ページネーションと大量データ
+
+### 効率的なページネーション
+
+```php
+// 基本的なページネーション
+$products = Product::paginate(15);
+
+// 条件付きページネーション
+$products = Product::where('category_id', $categoryId)
+    ->where('is_active', true)
+    ->orderBy('name')
+    ->paginate(15);
+    
+// シンプルなページネーション（前/次のみ）
+$products = Product::simplePaginate(15);
+
+// 手動ページネーション（大量データ向け）
+$products = Product::where('id', '>', $lastId)
+    ->take(100)
+    ->get();
+```
+
+### カーソルページネーション
+
+```php
+// カーソルページネーション（IDベース）
+$products = Product::where('category_id', $categoryId)
+    ->orderBy('id')
+    ->cursorPaginate(15);
+```
+
+## キャッシュの活用
+
+### クエリキャッシュ
+
+```php
+// キャッシュを使用したクエリ
+$products = Cache::remember('products.active', 60 * 60, function () {
+    return Product::where('is_active', true)
+        ->with('category')
+        ->get();
+});
+
+// タグ付きキャッシュ（キャッシュの選択的クリア）
+$products = Cache::tags(['products', 'active'])->remember('products.active', 60 * 60, function () {
+    return Product::where('is_active', true)->get();
+});
+
+// キャッシュのクリア
+Cache::tags(['products'])->flush();
+```
+
+## SQLログとデバッグ
+
+```php
+// クエリのデバッグ（開発環境のみ）
+DB::enableQueryLog();
+$products = Product::with('category')->where('is_active', true)->get();
+$queries = DB::getQueryLog();
+Log::info($queries);
+```
+
+## 集計クエリの最適化
+
+```php
+// 単純な集計
+$totalProducts = Product::count();
+$totalActiveProducts = Product::where('is_active', true)->count();
+$totalInventory = Inventory::sum('quantity');
+
+// 複数の集計を一度に計算
+$stats = Product::selectRaw('
+    COUNT(*) as total_products,
+    SUM(CASE WHEN is_active = true THEN 1 ELSE 0 END) as active_products,
+    AVG(price) as average_price,
+    MAX(price) as max_price,
+    MIN(price) as min_price
+')->first();
+```
+
+## 大量データの処理
+
+```php
+// チャンク処理（メモリ効率）
+Product::chunk(100, function ($products) {
+    foreach ($products as $product) {
+        // 各商品の処理
+    }
+});
+
+// LazyCollection（ストリーミング処理）
+Product::lazy()->each(function ($product) {
+    // 各商品の処理（メモリ効率が良い）
+});
+```
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# queries.mdcを使用しています
+# クエリ最適化ルールに従い、次のように商品一覧取得クエリを実装します...
+``` 

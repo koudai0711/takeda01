@@ -1,0 +1,94 @@
+# Laravel 実装ルール
+
+*このファイル: /.cursor/rules/backend/laravel.mdc*
+
+## フレームワーク設定
+
+- Laravel バージョン: 12.0+
+- PHP バージョン: 8.2.15+
+- 推奨拡張機能: Laravel IDE Helper, Laravel Debug Bar
+
+## 一般的なプラクティス
+
+### ルート定義
+
+- API ルートは `routes/api.php` に定義
+- Web ルートは `routes/web.php` に定義
+- ルート名はリソース名とアクション名を組み合わせる
+- 複雑なルートはコントローラーにグループ化
+
+例：
+```php
+// routes/api.php
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('products', ProductController::class);
+    Route::apiResource('orders', OrderController::class);
+});
+
+// routes/web.php
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::resource('products', ProductController::class);
+});
+```
+
+### 依存性注入の活用
+
+- コンストラクタインジェクションを優先
+- インターフェイスへの依存を推奨
+
+例：
+```php
+// app/Http/Controllers/ProductController.php
+class ProductController extends Controller
+{
+    protected ProductServiceInterface $productService;
+
+    public function __construct(ProductServiceInterface $productService)
+    {
+        $this->productService = $productService;
+    }
+}
+```
+
+### 認証・認可
+
+- Sanctum を使用した API 認証
+- ポリシーを使用した認可制御
+- ミドルウェアによるルートレベルの保護
+
+## エラーハンドリング
+
+- 例外はグローバルハンドラで処理
+- API レスポンスは一貫した形式で返す
+- ログはモジュールごとにチャンネル分け
+
+例：
+```php
+// app/Exceptions/Handler.php
+public function render($request, Throwable $exception)
+{
+    if ($request->expectsJson()) {
+        if ($exception instanceof ValidationException) {
+            return response()->json([
+                'message' => '入力データが無効です',
+                'errors' => $exception->errors(),
+            ], 422);
+        }
+        
+        return response()->json([
+            'message' => $exception->getMessage() ?: '予期せぬエラーが発生しました',
+        ], $this->getStatusCode($exception));
+    }
+
+    return parent::render($request, $exception);
+}
+```
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# laravel.mdcを使用しています
+# Laravelの実装ルールに従い、次のように実装します... 

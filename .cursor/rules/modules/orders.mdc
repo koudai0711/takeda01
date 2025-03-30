@@ -1,0 +1,797 @@
+# 受発注モジュールルール
+
+*このファイル: /.cursor/rules/modules/orders.mdc*
+
+## モジュール概要
+
+受発注モジュールは、商品の受注（販売）と発注（仕入）の両方を管理し、在庫変動と連携して、取引のワークフローを実現します。
+
+## 機能一覧
+
+### 受注管理（販売管理）
+- 受注登録・編集・取消
+- 受注一覧・検索
+- 受注詳細表示
+- 受注ステータス管理（未確定/確定/出荷済/完了/キャンセル）
+- 受注確定時の在庫確保
+- 出荷処理
+- 受注レポート
+
+### 発注管理（仕入管理）
+- 発注登録・編集・取消
+- 発注一覧・検索
+- 発注詳細表示
+- 発注ステータス管理（未確定/確定/入荷待ち/完了/キャンセル）
+- 入荷処理
+- 発注レポート
+
+## データモデル
+
+### 受注（Sales Order）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| order_number | string(20) | 受注番号（システム生成） |
+| customer_id | bigint | 顧客ID（外部キー） |
+| order_date | date | 受注日 |
+| delivery_date | date | 希望納期 |
+| total_amount | decimal(12,2) | 合計金額 |
+| tax_amount | decimal(10,2) | 税額 |
+| shipping_fee | decimal(10,2) | 送料 |
+| status | string | ステータス |
+| payment_method | string | 支払方法 |
+| shipping_method | string | 配送方法 |
+| note | text | 備考 |
+| created_by | bigint | 作成者ID |
+| updated_by | bigint | 更新者ID |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+### 受注明細（Sales Order Item）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| sales_order_id | bigint | 受注ID（外部キー） |
+| product_id | bigint | 商品ID（外部キー） |
+| quantity | integer | 数量 |
+| unit_price | decimal(10,2) | 単価 |
+| tax_rate | decimal(5,2) | 税率（%） |
+| amount | decimal(12,2) | 金額（単価×数量） |
+| shipped_quantity | integer | 出荷済数量 |
+| note | text | 備考 |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+### 発注（Purchase Order）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| order_number | string(20) | 発注番号（システム生成） |
+| supplier_id | bigint | 仕入先ID（外部キー） |
+| order_date | date | 発注日 |
+| expected_date | date | 予定納期 |
+| total_amount | decimal(12,2) | 合計金額 |
+| tax_amount | decimal(10,2) | 税額 |
+| status | string | ステータス |
+| payment_terms | string | 支払条件 |
+| note | text | 備考 |
+| created_by | bigint | 作成者ID |
+| updated_by | bigint | 更新者ID |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+### 発注明細（Purchase Order Item）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| purchase_order_id | bigint | 発注ID（外部キー） |
+| product_id | bigint | 商品ID（外部キー） |
+| quantity | integer | 数量 |
+| unit_price | decimal(10,2) | 単価 |
+| tax_rate | decimal(5,2) | 税率（%） |
+| amount | decimal(12,2) | 金額（単価×数量） |
+| received_quantity | integer | 入荷済数量 |
+| note | text | 備考 |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+### 出荷（Shipment）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| sales_order_id | bigint | 受注ID（外部キー） |
+| shipment_number | string(20) | 出荷番号 |
+| shipment_date | date | 出荷日 |
+| shipping_method | string | 配送方法 |
+| tracking_number | string | 追跡番号 |
+| status | string | ステータス |
+| note | text | 備考 |
+| created_by | bigint | 作成者ID |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+### 入荷（Receipt）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| purchase_order_id | bigint | 発注ID（外部キー） |
+| receipt_number | string(20) | 入荷番号 |
+| receipt_date | date | 入荷日 |
+| status | string | ステータス |
+| note | text | 備考 |
+| created_by | bigint | 作成者ID |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+## クラス構成
+
+### コントローラー
+
+```
+app/Http/Controllers/Orders/
+├── Sales/                     # 受注関連
+│   ├── SalesOrderController.php     # 受注CRUD
+│   ├── ShipmentController.php       # 出荷処理
+│   └── SalesReportController.php    # 受注レポート
+└── Purchase/                  # 発注関連
+    ├── PurchaseOrderController.php  # 発注CRUD
+    ├── ReceiptController.php        # 入荷処理
+    └── PurchaseReportController.php # 発注レポート
+```
+
+### サービス
+
+```
+app/Services/Orders/
+├── Sales/
+│   ├── SalesOrderService.php        # 受注サービス
+│   └── ShipmentService.php          # 出荷サービス
+└── Purchase/
+    ├── PurchaseOrderService.php     # 発注サービス
+    └── ReceiptService.php           # 入荷サービス
+```
+
+### モデル
+
+```
+app/Models/
+├── SalesOrder.php                   # 受注モデル
+├── SalesOrderItem.php               # 受注明細モデル
+├── PurchaseOrder.php                # 発注モデル
+├── PurchaseOrderItem.php            # 発注明細モデル
+├── Shipment.php                     # 出荷モデル
+└── Receipt.php                      # 入荷モデル
+```
+
+### リクエスト
+
+```
+app/Http/Requests/Orders/
+├── Sales/
+│   ├── StoreSalesOrderRequest.php
+│   ├── UpdateSalesOrderRequest.php
+│   └── ShipmentRequest.php
+└── Purchase/
+    ├── StorePurchaseOrderRequest.php
+    ├── UpdatePurchaseOrderRequest.php
+    └── ReceiptRequest.php
+```
+
+## 実装例
+
+### 受注モデル
+
+```php
+// app/Models/SalesOrder.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class SalesOrder extends Model
+{
+    use HasFactory;
+
+    /**
+     * 受注ステータス定数
+     */
+    const STATUS_DRAFT = 'draft';         // 下書き（未確定）
+    const STATUS_CONFIRMED = 'confirmed'; // 確定済
+    const STATUS_SHIPPED = 'shipped';     // 出荷済
+    const STATUS_COMPLETED = 'completed'; // 完了
+    const STATUS_CANCELLED = 'cancelled'; // キャンセル
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'order_number',
+        'customer_id',
+        'order_date',
+        'delivery_date',
+        'total_amount',
+        'tax_amount',
+        'shipping_fee',
+        'status',
+        'payment_method',
+        'shipping_method',
+        'note',
+        'created_by',
+        'updated_by',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'order_date' => 'date',
+        'delivery_date' => 'date',
+        'total_amount' => 'decimal:2',
+        'tax_amount' => 'decimal:2',
+        'shipping_fee' => 'decimal:2',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    /**
+     * 受注に関連する顧客を取得
+     */
+    public function customer()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /**
+     * 受注明細を取得
+     */
+    public function items()
+    {
+        return $this->hasMany(SalesOrderItem::class);
+    }
+
+    /**
+     * 出荷情報を取得
+     */
+    public function shipments()
+    {
+        return $this->hasMany(Shipment::class);
+    }
+
+    /**
+     * 作成者を取得
+     */
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * 更新者を取得
+     */
+    public function updater()
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * 総合計金額を取得（税込み + 送料）
+     */
+    public function getGrandTotalAttribute()
+    {
+        return $this->total_amount + $this->tax_amount + $this->shipping_fee;
+    }
+
+    /**
+     * 受注が編集可能かどうか判定
+     */
+    public function isEditable()
+    {
+        return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_CONFIRMED]);
+    }
+
+    /**
+     * 受注がキャンセル可能かどうか判定
+     */
+    public function isCancellable()
+    {
+        return in_array($this->status, [self::STATUS_DRAFT, self::STATUS_CONFIRMED]);
+    }
+
+    /**
+     * 受注が出荷可能かどうか判定
+     */
+    public function isShippable()
+    {
+        return $this->status === self::STATUS_CONFIRMED;
+    }
+
+    /**
+     * 受注が完了可能かどうか判定
+     */
+    public function isCompletable()
+    {
+        return $this->status === self::STATUS_SHIPPED;
+    }
+}
+```
+
+### 受注サービス
+
+```php
+// app/Services/Orders/Sales/SalesOrderService.php
+namespace App\Services\Orders\Sales;
+
+use App\Models\SalesOrder;
+use App\Models\SalesOrderItem;
+use App\Services\Inventory\InventoryService;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
+class SalesOrderService
+{
+    protected InventoryService $inventoryService;
+    
+    public function __construct(InventoryService $inventoryService)
+    {
+        $this->inventoryService = $inventoryService;
+    }
+    
+    /**
+     * 受注一覧を取得
+     */
+    public function listOrders(?string $search, ?string $status, ?string $dateFrom, ?string $dateTo, string $sortBy, string $order)
+    {
+        return SalesOrder::with(['customer'])
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('order_number', 'like', "%{$search}%")
+                      ->orWhereHas('customer', function ($q2) use ($search) {
+                          $q2->where('name', 'like', "%{$search}%");
+                      });
+                });
+            })
+            ->when($status, function ($query, $status) {
+                $query->where('status', $status);
+            })
+            ->when($dateFrom, function ($query, $dateFrom) {
+                $query->where('order_date', '>=', $dateFrom);
+            })
+            ->when($dateTo, function ($query, $dateTo) {
+                $query->where('order_date', '<=', $dateTo);
+            })
+            ->orderBy($sortBy, $order)
+            ->paginate(15);
+    }
+    
+    /**
+     * 受注を作成
+     */
+    public function createOrder(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+            // 受注番号の生成
+            $orderNumber = $this->generateOrderNumber();
+            
+            // 受注の作成
+            $order = SalesOrder::create([
+                'order_number' => $orderNumber,
+                'customer_id' => $data['customer_id'],
+                'order_date' => $data['order_date'] ?? Carbon::today(),
+                'delivery_date' => $data['delivery_date'] ?? null,
+                'total_amount' => 0, // 明細から計算
+                'tax_amount' => 0,   // 明細から計算
+                'shipping_fee' => $data['shipping_fee'] ?? 0,
+                'status' => $data['status'] ?? SalesOrder::STATUS_DRAFT,
+                'payment_method' => $data['payment_method'] ?? null,
+                'shipping_method' => $data['shipping_method'] ?? null,
+                'note' => $data['note'] ?? null,
+                'created_by' => Auth::id(),
+                'updated_by' => Auth::id(),
+            ]);
+            
+            // 受注明細の作成
+            $totalAmount = 0;
+            $taxAmount = 0;
+            
+            foreach ($data['items'] as $item) {
+                $amount = $item['unit_price'] * $item['quantity'];
+                $itemTax = $amount * ($item['tax_rate'] / 100);
+                
+                SalesOrderItem::create([
+                    'sales_order_id' => $order->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'tax_rate' => $item['tax_rate'],
+                    'amount' => $amount,
+                    'shipped_quantity' => 0,
+                    'note' => $item['note'] ?? null,
+                ]);
+                
+                $totalAmount += $amount;
+                $taxAmount += $itemTax;
+            }
+            
+            // 受注金額を更新
+            $order->update([
+                'total_amount' => $totalAmount,
+                'tax_amount' => $taxAmount,
+            ]);
+            
+            // 受注確定の場合、在庫を確保
+            if ($order->status === SalesOrder::STATUS_CONFIRMED) {
+                $this->reserveInventory($order);
+            }
+            
+            return $order;
+        });
+    }
+    
+    /**
+     * 受注を更新
+     */
+    public function updateOrder(SalesOrder $order, array $data)
+    {
+        return DB::transaction(function () use ($order, $data) {
+            // 更新前のステータスを保存
+            $previousStatus = $order->status;
+            
+            // 受注情報の更新
+            $order->update([
+                'customer_id' => $data['customer_id'],
+                'order_date' => $data['order_date'],
+                'delivery_date' => $data['delivery_date'] ?? null,
+                'shipping_fee' => $data['shipping_fee'] ?? 0,
+                'status' => $data['status'],
+                'payment_method' => $data['payment_method'] ?? null,
+                'shipping_method' => $data['shipping_method'] ?? null,
+                'note' => $data['note'] ?? null,
+                'updated_by' => Auth::id(),
+            ]);
+            
+            // 受注明細の処理（既存の明細を削除して再作成）
+            $order->items()->delete();
+            
+            $totalAmount = 0;
+            $taxAmount = 0;
+            
+            foreach ($data['items'] as $item) {
+                $amount = $item['unit_price'] * $item['quantity'];
+                $itemTax = $amount * ($item['tax_rate'] / 100);
+                
+                SalesOrderItem::create([
+                    'sales_order_id' => $order->id,
+                    'product_id' => $item['product_id'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                    'tax_rate' => $item['tax_rate'],
+                    'amount' => $amount,
+                    'shipped_quantity' => $item['shipped_quantity'] ?? 0,
+                    'note' => $item['note'] ?? null,
+                ]);
+                
+                $totalAmount += $amount;
+                $taxAmount += $itemTax;
+            }
+            
+            // 受注金額を更新
+            $order->update([
+                'total_amount' => $totalAmount,
+                'tax_amount' => $taxAmount,
+            ]);
+            
+            // ステータス変更に応じた処理
+            if ($previousStatus !== SalesOrder::STATUS_CONFIRMED && $order->status === SalesOrder::STATUS_CONFIRMED) {
+                // 未確定→確定: 在庫確保
+                $this->reserveInventory($order);
+            } elseif ($previousStatus === SalesOrder::STATUS_CONFIRMED && $order->status === SalesOrder::STATUS_CANCELLED) {
+                // 確定→キャンセル: 在庫戻し
+                $this->returnInventory($order);
+            }
+            
+            return $order;
+        });
+    }
+    
+    /**
+     * 受注をキャンセル
+     */
+    public function cancelOrder(SalesOrder $order, string $reason)
+    {
+        return DB::transaction(function () use ($order, $reason) {
+            // 受注がキャンセル可能か確認
+            if (!$order->isCancellable()) {
+                throw new \Exception('この受注はキャンセルできません');
+            }
+            
+            // 受注ステータスをキャンセルに変更
+            $order->update([
+                'status' => SalesOrder::STATUS_CANCELLED,
+                'note' => ($order->note ? $order->note . "\n" : '') . "キャンセル理由: {$reason}",
+                'updated_by' => Auth::id(),
+            ]);
+            
+            // 確定済みだった場合、在庫を戻す
+            if ($order->status === SalesOrder::STATUS_CONFIRMED) {
+                $this->returnInventory($order);
+            }
+            
+            return $order;
+        });
+    }
+    
+    /**
+     * 受注確定時の在庫確保
+     */
+    private function reserveInventory(SalesOrder $order)
+    {
+        foreach ($order->items as $item) {
+            $this->inventoryService->stockOut(
+                $item->product_id,
+                $item->quantity,
+                '受注確定による引当',
+                "受注番号: {$order->order_number}"
+            );
+        }
+    }
+    
+    /**
+     * キャンセル時の在庫戻し
+     */
+    private function returnInventory(SalesOrder $order)
+    {
+        foreach ($order->items as $item) {
+            // 未出荷分のみ戻す
+            $remainingQuantity = $item->quantity - $item->shipped_quantity;
+            if ($remainingQuantity > 0) {
+                $this->inventoryService->stockIn(
+                    $item->product_id,
+                    $remainingQuantity,
+                    '受注キャンセルによる在庫戻し',
+                    "受注番号: {$order->order_number}"
+                );
+            }
+        }
+    }
+    
+    /**
+     * 受注番号を生成
+     */
+    private function generateOrderNumber()
+    {
+        $prefix = 'SO';
+        $date = Carbon::today()->format('Ymd');
+        $lastOrder = SalesOrder::where('order_number', 'like', "{$prefix}{$date}%")
+            ->orderBy('order_number', 'desc')
+            ->first();
+        
+        if ($lastOrder) {
+            $lastNumber = substr($lastOrder->order_number, -4);
+            $nextNumber = str_pad((int) $lastNumber + 1, 4, '0', STR_PAD_LEFT);
+        } else {
+            $nextNumber = '0001';
+        }
+        
+        return "{$prefix}{$date}{$nextNumber}";
+    }
+}
+```
+
+### 受注コントローラー
+
+```php
+// app/Http/Controllers/Orders/Sales/SalesOrderController.php
+namespace App\Http\Controllers\Orders\Sales;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Orders\Sales\StoreSalesOrderRequest;
+use App\Http\Requests\Orders\Sales\UpdateSalesOrderRequest;
+use App\Http\Resources\SalesOrderResource;
+use App\Models\Customer;
+use App\Models\Product;
+use App\Models\SalesOrder;
+use App\Services\Orders\Sales\SalesOrderService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+
+class SalesOrderController extends Controller
+{
+    protected SalesOrderService $salesOrderService;
+    
+    public function __construct(SalesOrderService $salesOrderService)
+    {
+        $this->salesOrderService = $salesOrderService;
+    }
+    
+    /**
+     * 受注一覧を表示
+     */
+    public function index(Request $request)
+    {
+        $orders = $this->salesOrderService->listOrders(
+            $request->get('search'),
+            $request->get('status'),
+            $request->get('date_from'),
+            $request->get('date_to'),
+            $request->get('sort', 'order_date'),
+            $request->get('order', 'desc')
+        );
+        
+        return Inertia::render('Orders/Sales/Index', [
+            'orders' => SalesOrderResource::collection($orders),
+            'filters' => $request->all(['search', 'status', 'date_from', 'date_to', 'sort', 'order']),
+            'statuses' => $this->getOrderStatusOptions(),
+        ]);
+    }
+    
+    /**
+     * 受注作成フォームを表示
+     */
+    public function create()
+    {
+        $customers = Customer::orderBy('name')->get(['id', 'name']);
+        $products = Product::active()->with('inventory')->get();
+        
+        return Inertia::render('Orders/Sales/Create', [
+            'customers' => $customers,
+            'products' => $products,
+            'statuses' => $this->getOrderStatusOptions(),
+            'paymentMethods' => $this->getPaymentMethodOptions(),
+            'shippingMethods' => $this->getShippingMethodOptions(),
+        ]);
+    }
+    
+    /**
+     * 受注を登録
+     */
+    public function store(StoreSalesOrderRequest $request)
+    {
+        $order = $this->salesOrderService->createOrder($request->validated());
+        
+        return redirect()->route('sales-orders.show', $order)
+            ->with('success', '受注を登録しました');
+    }
+    
+    /**
+     * 受注詳細を表示
+     */
+    public function show(SalesOrder $salesOrder)
+    {
+        $salesOrder->load([
+            'customer',
+            'items.product',
+            'shipments',
+            'creator',
+            'updater',
+        ]);
+        
+        return Inertia::render('Orders/Sales/Show', [
+            'order' => new SalesOrderResource($salesOrder),
+            'canEdit' => $salesOrder->isEditable(),
+            'canCancel' => $salesOrder->isCancellable(),
+            'canShip' => $salesOrder->isShippable(),
+            'canComplete' => $salesOrder->isCompletable(),
+        ]);
+    }
+    
+    /**
+     * 受注編集フォームを表示
+     */
+    public function edit(SalesOrder $salesOrder)
+    {
+        if (!$salesOrder->isEditable()) {
+            return redirect()->route('sales-orders.show', $salesOrder)
+                ->with('error', 'この受注は編集できません');
+        }
+        
+        $salesOrder->load(['customer', 'items.product']);
+        $customers = Customer::orderBy('name')->get(['id', 'name']);
+        $products = Product::active()->with('inventory')->get();
+        
+        return Inertia::render('Orders/Sales/Edit', [
+            'order' => new SalesOrderResource($salesOrder),
+            'customers' => $customers,
+            'products' => $products,
+            'statuses' => $this->getOrderStatusOptions(),
+            'paymentMethods' => $this->getPaymentMethodOptions(),
+            'shippingMethods' => $this->getShippingMethodOptions(),
+        ]);
+    }
+    
+    /**
+     * 受注を更新
+     */
+    public function update(UpdateSalesOrderRequest $request, SalesOrder $salesOrder)
+    {
+        if (!$salesOrder->isEditable()) {
+            return redirect()->route('sales-orders.show', $salesOrder)
+                ->with('error', 'この受注は編集できません');
+        }
+        
+        $this->salesOrderService->updateOrder($salesOrder, $request->validated());
+        
+        return redirect()->route('sales-orders.show', $salesOrder)
+            ->with('success', '受注を更新しました');
+    }
+    
+    /**
+     * 受注をキャンセル
+     */
+    public function cancel(Request $request, SalesOrder $salesOrder)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:255',
+        ]);
+        
+        if (!$salesOrder->isCancellable()) {
+            return redirect()->route('sales-orders.show', $salesOrder)
+                ->with('error', 'この受注はキャンセルできません');
+        }
+        
+        $this->salesOrderService->cancelOrder($salesOrder, $request->reason);
+        
+        return redirect()->route('sales-orders.show', $salesOrder)
+            ->with('success', '受注をキャンセルしました');
+    }
+    
+    /**
+     * 受注ステータスの選択肢を取得
+     */
+    private function getOrderStatusOptions()
+    {
+        return [
+            ['value' => SalesOrder::STATUS_DRAFT, 'label' => '未確定'],
+            ['value' => SalesOrder::STATUS_CONFIRMED, 'label' => '確定済'],
+            ['value' => SalesOrder::STATUS_SHIPPED, 'label' => '出荷済'],
+            ['value' => SalesOrder::STATUS_COMPLETED, 'label' => '完了'],
+            ['value' => SalesOrder::STATUS_CANCELLED, 'label' => 'キャンセル'],
+        ];
+    }
+    
+    /**
+     * 支払方法の選択肢を取得
+     */
+    private function getPaymentMethodOptions()
+    {
+        return [
+            ['value' => 'bank_transfer', 'label' => '銀行振込'],
+            ['value' => 'credit_card', 'label' => 'クレジットカード'],
+            ['value' => 'cash_on_delivery', 'label' => '代金引換'],
+            ['value' => 'invoice', 'label' => '請求書払い'],
+        ];
+    }
+    
+    /**
+     * 配送方法の選択肢を取得
+     */
+    private function getShippingMethodOptions()
+    {
+        return [
+            ['value' => 'regular', 'label' => '通常配送'],
+            ['value' => 'express', 'label' => '速達'],
+            ['value' => 'pickup', 'label' => '店頭受取'],
+        ];
+    }
+}
+```
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# orders.mdcを使用しています
+# 受発注モジュールルールに従い、次のように受注登録フォームを実装します...
+``` 

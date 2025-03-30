@@ -1,0 +1,187 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# コントローラー設計ルール
+
+*このファイル: /.cursor/rules/backend/controllers.mdc*
+
+## コントローラー基本設計
+
+- 単一責任の原則を守る
+- リソースコントローラーを優先的に使用
+- ビジネスロジックはサービス層に委譲
+- リクエストバリデーションはフォームリクエストで実装
+
+## コントローラーの種類と配置
+
+### Webコントローラー
+```
+app/Http/Controllers/
+├── Auth/                # 認証関連
+├── Dashboard/           # ダッシュボード
+├── Products/            # 商品管理
+├── Inventory/           # 在庫管理
+└── Orders/              # 受発注管理
+```
+
+### APIコントローラー
+```
+app/Http/Controllers/API/
+├── v1/                  # APIバージョン1
+│   ├── Auth/            # 認証API
+│   ├── Products/        # 商品API
+│   ├── Inventory/       # 在庫API
+│   └── Orders/          # 受発注API
+└── v2/                  # APIバージョン2（将来用）
+```
+
+## リソースコントローラー実装例
+
+```php
+// app/Http/Controllers/Products/ProductController.php
+class ProductController extends Controller
+{
+    protected ProductService $productService;
+
+    public function __construct(ProductService $productService)
+    {
+        $this->productService = $productService;
+    }
+
+    /**
+     * 商品一覧を表示
+     */
+    public function index(Request $request)
+    {
+        $products = $this->productService->listProducts(
+            $request->get('search'),
+            $request->get('category'),
+            $request->get('sort', 'created_at'),
+            $request->get('order', 'desc')
+        );
+
+        return Inertia::render('Products/Index', [
+            'products' => ProductResource::collection($products),
+            'filters' => $request->all(['search', 'category', 'sort', 'order']),
+        ]);
+    }
+
+    /**
+     * 商品作成フォームを表示
+     */
+    public function create()
+    {
+        $categories = Category::all();
+        return Inertia::render('Products/Create', compact('categories'));
+    }
+
+    /**
+     * 商品を保存
+     */
+    public function store(StoreProductRequest $request)
+    {
+        $product = $this->productService->createProduct($request->validated());
+
+        return redirect()->route('products.show', $product)
+            ->with('success', '商品を作成しました');
+    }
+
+    /**
+     * 商品詳細を表示
+     */
+    public function show(Product $product)
+    {
+        $product->load(['category', 'inventory']);
+        return Inertia::render('Products/Show', [
+            'product' => new ProductResource($product),
+        ]);
+    }
+
+    // 他のアクション（edit, update, destroy）も同様に実装
+}
+```
+
+## APIコントローラー実装例
+
+```php
+// app/Http/Controllers/API/v1/Products/ProductController.php
+class ProductController extends Controller
+{
+    protected ProductService $productService;
+
+    public function __construct(ProductService $productService)
+    {
+        $this->productService = $productService;
+    }
+
+    /**
+     * 商品リスト取得API
+     */
+    public function index(Request $request)
+    {
+        $products = $this->productService->listProducts(
+            $request->get('search'),
+            $request->get('category'),
+            $request->get('sort', 'created_at'),
+            $request->get('order', 'desc')
+        );
+
+        return ProductResource::collection($products);
+    }
+
+    /**
+     * 商品作成API
+     */
+    public function store(StoreProductRequest $request)
+    {
+        $product = $this->productService->createProduct($request->validated());
+        return new ProductResource($product);
+    }
+
+    // 他のアクション（show, update, destroy）も同様に実装
+}
+```
+
+## フォームリクエスト
+
+```php
+// app/Http/Requests/StoreProductRequest.php
+class StoreProductRequest extends FormRequest
+{
+    public function authorize()
+    {
+        return true; // 認可ロジックはポリシーで実装
+    }
+
+    public function rules()
+    {
+        return [
+            'product_code' => 'required|string|max:50|unique:products',
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'price' => 'required|numeric|min:0',
+            'category_id' => 'required|exists:categories,id',
+            'is_active' => 'boolean',
+        ];
+    }
+
+    public function messages()
+    {
+        return [
+            'product_code.required' => '商品コードは必須です',
+            'product_code.unique' => 'この商品コードは既に使用されています',
+            // 他のメッセージも日本語で定義
+        ];
+    }
+}
+```
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# controllers.mdcを使用しています
+# コントローラー設計ルールに従い、次のようにコントローラーを実装します... 

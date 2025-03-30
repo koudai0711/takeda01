@@ -1,0 +1,452 @@
+# 商品管理モジュールルール
+
+*このファイル: /.cursor/rules/modules/products.mdc*
+
+## モジュール概要
+
+商品管理モジュールは、システムにおける商品情報の登録・編集・閲覧・削除を担当します。商品カテゴリの管理も含みます。
+
+## 機能一覧
+
+- 商品マスタ管理
+  - 商品登録・編集・削除
+  - 商品カテゴリ管理
+  - 商品検索・フィルタリング
+  - 商品一覧表示
+  - 商品詳細表示
+- 商品画像管理
+  - 画像アップロード
+  - 画像表示
+
+## データモデル
+
+### 商品情報（Product）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| product_code | string(50) | 商品コード（一意） |
+| name | string(255) | 商品名 |
+| description | text | 商品説明 |
+| price | decimal(10,2) | 価格 |
+| category_id | bigint | カテゴリID（外部キー） |
+| is_active | boolean | 有効フラグ |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+| deleted_at | datetime | 削除日時（論理削除） |
+
+### カテゴリ情報（Category）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| name | string(255) | カテゴリ名 |
+| description | text | カテゴリ説明 |
+| parent_id | bigint | 親カテゴリID（自己参照） |
+| sort_order | int | 表示順 |
+| is_active | boolean | 有効フラグ |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+### 商品画像（ProductImage）
+
+| フィールド | 型 | 説明 |
+|------------|------|------|
+| id | bigint | 主キー |
+| product_id | bigint | 商品ID（外部キー） |
+| file_path | string(255) | ファイルパス |
+| file_name | string(255) | ファイル名 |
+| is_main | boolean | メイン画像フラグ |
+| sort_order | int | 表示順 |
+| created_at | datetime | 作成日時 |
+| updated_at | datetime | 更新日時 |
+
+## クラス構成
+
+### コントローラー
+
+```
+app/Http/Controllers/Products/
+├── ProductController.php          # 商品CRUD
+├── CategoryController.php         # カテゴリCRUD
+└── ProductImageController.php     # 商品画像管理
+```
+
+### サービス
+
+```
+app/Services/Products/
+├── ProductService.php             # 商品サービス
+├── CategoryService.php            # カテゴリサービス
+└── ProductImageService.php        # 商品画像サービス
+```
+
+### モデル
+
+```
+app/Models/
+├── Product.php                    # 商品モデル
+├── Category.php                   # カテゴリモデル
+└── ProductImage.php               # 商品画像モデル
+```
+
+### リクエスト
+
+```
+app/Http/Requests/Products/
+├── StoreProductRequest.php        # 商品登録リクエスト
+├── UpdateProductRequest.php       # 商品更新リクエスト
+├── StoreCategoryRequest.php       # カテゴリ登録リクエスト
+└── UpdateCategoryRequest.php      # カテゴリ更新リクエスト
+```
+
+### リソース（API用）
+
+```
+app/Http/Resources/
+├── ProductResource.php            # 商品リソース
+├── ProductCollection.php          # 商品コレクション
+├── CategoryResource.php           # カテゴリリソース
+└── CategoryCollection.php         # カテゴリコレクション
+```
+
+## 実装例
+
+### 商品モデル
+
+```php
+// app/Models/Product.php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Product extends Model
+{
+    use HasFactory, SoftDeletes;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array
+     */
+    protected $fillable = [
+        'product_code',
+        'name',
+        'description',
+        'price',
+        'category_id',
+        'is_active',
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'price' => 'decimal:2',
+        'is_active' => 'boolean',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    /**
+     * 商品が所属するカテゴリを取得
+     */
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * 商品に関連する在庫情報を取得
+     */
+    public function inventory()
+    {
+        return $this->hasOne(Inventory::class);
+    }
+
+    /**
+     * 商品に関連する画像を取得
+     */
+    public function images()
+    {
+        return $this->hasMany(ProductImage::class)->orderBy('sort_order');
+    }
+
+    /**
+     * 商品のメイン画像を取得
+     */
+    public function mainImage()
+    {
+        return $this->hasOne(ProductImage::class)->where('is_main', true);
+    }
+
+    /**
+     * アクティブな商品のみを絞り込むクエリスコープ
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * 税込価格アクセサ
+     */
+    public function getTaxIncludedPriceAttribute()
+    {
+        return $this->price * 1.10; // 10%の消費税
+    }
+}
+```
+
+### 商品サービス
+
+```php
+// app/Services/Products/ProductService.php
+namespace App\Services\Products;
+
+use App\Models\Product;
+use App\Models\ProductImage;
+use App\Services\Inventory\InventoryService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+
+class ProductService
+{
+    protected InventoryService $inventoryService;
+    
+    public function __construct(InventoryService $inventoryService)
+    {
+        $this->inventoryService = $inventoryService;
+    }
+    
+    /**
+     * 商品一覧を取得
+     */
+    public function listProducts(?string $search, ?int $categoryId, string $sortBy, string $order)
+    {
+        return Product::with(['category', 'mainImage'])
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('product_code', 'like', "%{$search}%")
+                      ->orWhere('description', 'like', "%{$search}%");
+                });
+            })
+            ->when($categoryId, function ($query, $categoryId) {
+                $query->where('category_id', $categoryId);
+            })
+            ->orderBy($sortBy, $order)
+            ->paginate(15);
+    }
+    
+    /**
+     * 商品を登録
+     */
+    public function createProduct(array $data)
+    {
+        return DB::transaction(function () use ($data) {
+            // 商品の登録
+            $product = Product::create([
+                'product_code' => $data['product_code'],
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'price' => $data['price'],
+                'category_id' => $data['category_id'],
+                'is_active' => $data['is_active'] ?? true,
+            ]);
+            
+            // 在庫情報の初期化
+            $initialQuantity = $data['initial_quantity'] ?? 0;
+            $this->inventoryService->initializeInventory($product->id, $initialQuantity);
+            
+            // 画像の処理（存在する場合）
+            if (isset($data['images']) && is_array($data['images'])) {
+                $this->processProductImages($product, $data['images']);
+            }
+            
+            return $product;
+        });
+    }
+    
+    /**
+     * 商品を更新
+     */
+    public function updateProduct(Product $product, array $data)
+    {
+        return DB::transaction(function () use ($product, $data) {
+            // 商品情報の更新
+            $product->update([
+                'product_code' => $data['product_code'],
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                'price' => $data['price'],
+                'category_id' => $data['category_id'],
+                'is_active' => $data['is_active'] ?? true,
+            ]);
+            
+            // 画像の処理（存在する場合）
+            if (isset($data['images']) && is_array($data['images'])) {
+                $this->processProductImages($product, $data['images']);
+            }
+            
+            return $product;
+        });
+    }
+    
+    /**
+     * 商品を削除
+     */
+    public function deleteProduct(Product $product)
+    {
+        return DB::transaction(function () use ($product) {
+            // 商品画像を削除
+            foreach ($product->images as $image) {
+                Storage::delete('public/products/' . $image->file_name);
+                $image->delete();
+            }
+            
+            // 在庫情報を削除
+            if ($product->inventory) {
+                $product->inventory->delete();
+            }
+            
+            // 商品を削除（論理削除）
+            return $product->delete();
+        });
+    }
+    
+    /**
+     * 商品画像の処理
+     */
+    private function processProductImages(Product $product, array $images)
+    {
+        // 実装内容は省略
+    }
+}
+```
+
+### 商品コントローラー
+
+```php
+// app/Http/Controllers/Products/ProductController.php
+namespace App\Http\Controllers\Products;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Products\StoreProductRequest;
+use App\Http\Requests\Products\UpdateProductRequest;
+use App\Http\Resources\ProductResource;
+use App\Models\Category;
+use App\Models\Product;
+use App\Services\Products\ProductService;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+
+class ProductController extends Controller
+{
+    protected ProductService $productService;
+    
+    public function __construct(ProductService $productService)
+    {
+        $this->productService = $productService;
+    }
+    
+    /**
+     * 商品一覧を表示
+     */
+    public function index(Request $request)
+    {
+        $products = $this->productService->listProducts(
+            $request->get('search'),
+            $request->get('category'),
+            $request->get('sort', 'created_at'),
+            $request->get('order', 'desc')
+        );
+        
+        return Inertia::render('Products/Index', [
+            'products' => ProductResource::collection($products),
+            'filters' => $request->all(['search', 'category', 'sort', 'order']),
+            'categories' => Category::where('is_active', true)->get(['id', 'name']),
+        ]);
+    }
+    
+    /**
+     * 商品登録フォームを表示
+     */
+    public function create()
+    {
+        return Inertia::render('Products/Create', [
+            'categories' => Category::where('is_active', true)->get(['id', 'name']),
+        ]);
+    }
+    
+    /**
+     * 商品を登録
+     */
+    public function store(StoreProductRequest $request)
+    {
+        $product = $this->productService->createProduct($request->validated());
+        
+        return redirect()->route('products.show', $product)
+            ->with('success', '商品を登録しました。');
+    }
+    
+    /**
+     * 商品詳細を表示
+     */
+    public function show(Product $product)
+    {
+        $product->load(['category', 'inventory', 'images']);
+        
+        return Inertia::render('Products/Show', [
+            'product' => new ProductResource($product),
+        ]);
+    }
+    
+    /**
+     * 商品編集フォームを表示
+     */
+    public function edit(Product $product)
+    {
+        $product->load(['category', 'images']);
+        
+        return Inertia::render('Products/Edit', [
+            'product' => new ProductResource($product),
+            'categories' => Category::where('is_active', true)->get(['id', 'name']),
+        ]);
+    }
+    
+    /**
+     * 商品を更新
+     */
+    public function update(UpdateProductRequest $request, Product $product)
+    {
+        $this->productService->updateProduct($product, $request->validated());
+        
+        return redirect()->route('products.show', $product)
+            ->with('success', '商品を更新しました。');
+    }
+    
+    /**
+     * 商品を削除
+     */
+    public function destroy(Product $product)
+    {
+        $this->productService->deleteProduct($product);
+        
+        return redirect()->route('products.index')
+            ->with('success', '商品を削除しました。');
+    }
+}
+```
+
+## 使用例
+
+このルールファイルを使用する場合：
+
+```
+# products.mdcを使用しています
+# 商品管理モジュールルールに従い、次のように商品一覧画面を実装します... 
