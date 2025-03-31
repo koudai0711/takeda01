@@ -1,5 +1,5 @@
 import './bootstrap';
-// import '../css/app.css'; // CSSインポートを一時的に無効化
+import '../css/app.css';
 import { createApp, h } from 'vue';
 import { createInertiaApp, Link } from '@inertiajs/vue3';
 import { InertiaProgress } from '@inertiajs/progress';
