@@ -13,7 +13,23 @@ class AuthController extends Controller
      */
     public function showLogin()
     {
-        return Inertia::render('Login');
+        // すでにセッションにユーザー情報がある場合はホームページにリダイレクト
+        if (Session::has('user')) {
+            return redirect('/');
+        }
+
+        // ユーザーリスト（実際のアプリケーションではDBから取得）
+        $users = [
+            ['id' => 1, 'name' => '山田太郎'],
+            ['id' => 2, 'name' => '鈴木花子'],
+            ['id' => 3, 'name' => '佐藤一郎'],
+            ['id' => 4, 'name' => '田中優子'],
+            ['id' => 5, 'name' => '中村健一'],
+        ];
+        
+        return Inertia::render('Login', [
+            'users' => $users
+        ]);
     }
 
     /**

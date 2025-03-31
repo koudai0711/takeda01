@@ -21,8 +21,35 @@
 
 ## ファイル構造
 - Laravelの標準構造に従う
-- Vueコンポーネント: resources/js/Components
-- ページコンポーネント: resources/js/Pages
+- My-laravel-project/
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/  # ここでInertia::render()を返す
+│   │   └── Middleware/
+│   │       └── HandleInertiaRequests.php # Inertia用ミドルウェア
+│   └── ...
+├── public/               # ビルドされたJS/CSSが出力される
+├── resources/
+│   ├── css/              # CSS/Sassなど
+│   ├── js/               # ★フロントエンドのソースコードは主にここ★
+│   │   ├── Components/   # ページ間で再利用されるコンポーネント
+│   │   ├── Composables/  # (Vue 3の場合) 再利用可能なロジック
+│   │   ├── Layouts/      # 永続レイアウトコンポーネント
+│   │   ├── Pages/        # Inertiaが読み込むページコンポーネント ★重要★
+│   │   ├── Store/        # (必要であれば) 状態管理 (Pinia, Zustand等)
+│   │   ├── Utils/        # ユーティリティ関数
+│   │   ├── app.js        # フロントエンドのエントリーポイント (Vue/React/Inertiaの初期化)
+│   │   └── bootstrap.js  # (Laravel標準) Axios等の初期設定など
+│   ├── views/            # Bladeテンプレート
+│   │   └── app.blade.php # Inertiaを描画するルートBladeファイル ★重要★
+│   └── ...
+├── routes/
+│   └── web.php           # Inertia::render()を返すルート定義
+├── storage/
+├── vendor/
+├── package.json          # フロントエンドの依存関係 (Vue, React, Inertiaアダプタ等)
+├── vite.config.js        # (Viteを使用する場合) ビルド設定
+└── ... (他のLaravelファイル)
 
 ## 命名規則
 - コントローラー: PascalCase、単数形、「Controller」サフィックス
@@ -49,3 +76,4 @@
 - 実装説明を詳細に提供
 - 既存プロジェクト構造を尊重
 - 商品管理業務の文脈を考慮したコード生成
+- laravelのコマンドを打つときはdocker exec -it laravel-app bash を打つ

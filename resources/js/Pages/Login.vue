@@ -35,15 +35,23 @@
 
 <script setup>
 import { useForm } from '@inertiajs/vue3';
+import { onMounted } from 'vue';
 
-// ユーザー一覧（実際のアプリケーションではAPIやpropsから取得する）
-const users = [
-  { id: 1, name: '山田太郎' },
-  { id: 2, name: '鈴木花子' },
-  { id: 3, name: '佐藤一郎' },
-  { id: 4, name: '田中優子' },
-  { id: 5, name: '中村健一' }
-];
+// バックエンドから渡されるユーザー一覧を取得
+const props = defineProps({
+  users: {
+    type: Array,
+    required: true
+  }
+});
+
+// ユーザー一覧をコンポーネントで使用
+const users = props.users;
+
+// デバッグ用
+onMounted(() => {
+  console.log('ユーザーリスト:', users);
+});
 
 // フォームの状態
 const form = useForm({

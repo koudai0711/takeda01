@@ -8,7 +8,7 @@
     @vite('resources/js/app.js')
     @inertiaHead
 </head>
-<body>
+<body class="vsc-initialized">
     @inertia
 </body>
 </html> 
